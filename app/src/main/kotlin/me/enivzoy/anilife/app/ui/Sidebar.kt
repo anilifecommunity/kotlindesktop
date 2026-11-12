@@ -53,6 +53,7 @@ fun AppSidebar(
     current: Screen,
     onNavigate: (Screen) -> Unit,
     onRandom: () -> Unit,
+    onSearch: () -> Unit = { onNavigate(Screen.Browse) },
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
@@ -82,7 +83,7 @@ fun AppSidebar(
             BrandMark(size = if (compact) 30.dp else 36.dp)
             Spacer(Modifier.height(if (compact) 8.dp else 18.dp))
 
-            NavIcon(Icons.Rounded.Search, "Search", selected = false, size = iconSize) { onNavigate(Screen.Browse) }
+            NavIcon(Icons.Rounded.Search, "Search (Ctrl+K)", selected = false, size = iconSize) { onSearch() }
             Spacer(Modifier.height(gap))
             NavIcon(Icons.Rounded.Home, "Home", selected = current is Screen.Home, size = iconSize) { onNavigate(Screen.Home) }
             Spacer(Modifier.height(gap))

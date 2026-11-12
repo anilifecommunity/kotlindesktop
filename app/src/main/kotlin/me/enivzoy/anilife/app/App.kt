@@ -34,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -49,6 +51,7 @@ import me.enivzoy.anilife.app.data.DiscordPresenceTarget
 import me.enivzoy.anilife.app.data.MediaProviderManager
 import me.enivzoy.anilife.app.screens.BrowseScreen
 import me.enivzoy.anilife.app.screens.AnimeWatchScreen
+import me.enivzoy.anilife.app.screens.CommandPalette
 import me.enivzoy.anilife.app.screens.DetailScreen
 import me.enivzoy.anilife.app.screens.DownloadsScreen
 import me.enivzoy.anilife.app.screens.HomeScreen
@@ -204,13 +207,29 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
         )
     }
 
-    Box(Modifier.fillMaxSize()) {
+    var paletteOpen by remember { mutableStateOf(false) }
+
+    Box(
+        Modifier.fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown &&
+                    (event.isCtrlPressed || event.isMetaPressed) &&
+                    event.key == Key.K
+                ) {
+                    paletteOpen = !paletteOpen
+                    true
+                } else {
+                    false
+                }
+            },
+    ) {
     Row(Modifier.fillMaxSize().background(AniLifeColors.Background)) {
         if (screen !is Screen.Player) {
             AppSidebar(
                 current = screen,
                 onNavigate = ::navigateTo,
                 onRandom = ::pickRandom,
+                onSearch = { paletteOpen = true },
             )
         }
 
@@ -367,6 +386,15 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
                 Text("Rolling the dice…", color = AniLifeColors.Foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
         }
+    }
+
+    if (paletteOpen) {
+        CommandPalette(
+            repository = repository,
+            onOpenAnime = { navigateTo(Screen.Detail(it)) },
+            onNavigate = ::navigateTo,
+            onDismiss = { paletteOpen = false },
+        )
     }
 
     pickError?.let { message ->
