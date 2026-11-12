@@ -64,6 +64,7 @@ import me.enivzoy.anilife.app.screens.SettingsScreen
 import me.enivzoy.anilife.app.screens.MyAnimeListScreen
 import me.enivzoy.anilife.app.screens.NotificationsScreen
 import me.enivzoy.anilife.app.data.MyAnimeListSync
+import me.enivzoy.anilife.app.data.MpvBootstrap
 import me.enivzoy.anilife.app.data.NoticeStoreInstance
 import me.enivzoy.anilife.app.data.ReleaseNotifier
 import me.enivzoy.anilife.app.ui.AniLifeColors
@@ -118,6 +119,12 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
     LaunchedEffect(Unit) {
         MyAnimeListSync.configure()
         MyAnimeListSync.restore()
+    }
+    LaunchedEffect(Unit) {
+        val path = MpvBootstrap.ensure { status -> NoticeStoreInstance.add(kind = "mpv", title = "mpv", body = status) }
+        if (path == null) {
+            NoticeStoreInstance.add(kind = "mpv", title = "mpv", body = "libmpv not found and auto-download failed. Install mpv manually.")
+        }
     }
 
     LaunchedEffect(settings.discordPresenceEnabled, settings.discordApplicationId, presenceTarget) {
