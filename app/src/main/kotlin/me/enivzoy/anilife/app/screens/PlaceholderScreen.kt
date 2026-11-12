@@ -58,6 +58,7 @@ import me.enivzoy.anilife.app.Screen
 import me.enivzoy.anilife.app.ui.AniLifeColors
 import me.enivzoy.anilife.app.ui.BrandMark
 import me.enivzoy.anilife.app.ui.Chip
+import me.enivzoy.anilife.app.ui.ThemeEditor
 import me.enivzoy.anilife.app.data.AppSettings
 import me.enivzoy.anilife.app.data.DirectMediaDownloader
 import me.enivzoy.anilife.app.data.DiscordPresenceState
@@ -156,6 +157,7 @@ fun SettingsScreen(
     var activeSection by remember { mutableStateOf("About") }
     var searchQuery by remember { mutableStateOf("") }
     val searchableSettings = listOf(
+        SettingSearchEntry("Theme colors", "Appearance", "css theme colors palette editor custom look style"),
         SettingSearchEntry("About AniLife", "About", "app version metadata player"),
         SettingSearchEntry("Media providers", "About", "providers servers streaming jellyfin emby self hosted"),
         SettingSearchEntry("Default audio", "Playback", "sub dubbed audio track language"),
@@ -250,7 +252,7 @@ fun SettingsScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("About", "Discord", "Playback", "Downloads").forEach { section ->
+                listOf("About", "Discord", "Playback", "Downloads", "Appearance").forEach { section ->
                     if (activeSection == section) {
                         Button(
                             onClick = { activeSection = section },
@@ -426,6 +428,13 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            if (activeSection == "Appearance") SettingsGroupCard("Theme colors") {
+                ThemeEditor(
+                    css = settings.themeCss,
+                    onChange = { css -> onSettingsChange { it.copy(themeCss = css) } },
+                )
             }
 
             if (activeSection == "Discord") SettingsGroupCard("Discord Rich Presence") {

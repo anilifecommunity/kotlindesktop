@@ -30,6 +30,7 @@ data class AppSettings(
     val checkboxColor: String = "#87D66A",
     val checkboxTickColor: String = "#0A0F0A",
     val sidebarIconBackgroundColor: String = "#1A261A",
+    val themeCss: String = "",
     val sidebarIconBackgroundEnabled: Boolean = false,
     val sidebarIconShape: String = "rounded",
     val sidebarIconsJoined: Boolean = false,
@@ -79,6 +80,7 @@ class AppSettingsStore(private val file: File = settingsFile()) {
             checkboxColor = properties.getProperty("checkboxColor", "#87D66A"),
             checkboxTickColor = properties.getProperty("checkboxTickColor", "#0A0F0A"),
             sidebarIconBackgroundColor = properties.getProperty("sidebarIconBackgroundColor", "#1A261A"),
+            themeCss = properties.getProperty("themeCss", ""),
             sidebarIconBackgroundEnabled = properties.getProperty("sidebarIconBackgroundEnabled", "false").toBooleanStrictOrNull() ?: false,
             sidebarIconShape = properties.getProperty("sidebarIconShape", "rounded"),
             sidebarIconsJoined = properties.getProperty("sidebarIconsJoined", "false").toBooleanStrictOrNull() ?: false,
@@ -116,6 +118,7 @@ class AppSettingsStore(private val file: File = settingsFile()) {
             setProperty("checkboxColor", settings.checkboxColor)
             setProperty("checkboxTickColor", settings.checkboxTickColor)
             setProperty("sidebarIconBackgroundColor", settings.sidebarIconBackgroundColor)
+            setProperty("themeCss", settings.themeCss)
             setProperty("sidebarIconBackgroundEnabled", settings.sidebarIconBackgroundEnabled.toString())
             setProperty("sidebarIconShape", settings.sidebarIconShape)
             setProperty("sidebarIconsJoined", settings.sidebarIconsJoined.toString())
@@ -146,6 +149,7 @@ class AppSettingsStore(private val file: File = settingsFile()) {
         checkboxColor = validColor(checkboxColor, "#87D66A"),
         checkboxTickColor = validColor(checkboxTickColor, "#0A0F0A"),
         sidebarIconBackgroundColor = validColor(sidebarIconBackgroundColor, "#1A261A"),
+        themeCss = themeCss.take(20_000),
         sidebarIconShape = sidebarIconShape.takeIf { it in sidebarShapes } ?: "rounded",
         appFont = appFont.takeIf { it in fontFamilies } ?: "SansSerif",
         captionFontFile = captionFontFile.take(2048),

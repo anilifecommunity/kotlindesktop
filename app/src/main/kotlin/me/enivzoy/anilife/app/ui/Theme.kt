@@ -24,41 +24,72 @@ import java.io.File
 
 object AniLifeColors {
     private var appearance by mutableStateOf(AppSettings())
-    fun update(settings: AppSettings) { if (appearance != settings) appearance = settings }
-    private fun read(value: String, fallback: Long): Color = runCatching {
+    private var overrides by mutableStateOf<Map<String, Long>>(emptyMap())
+
+    fun update(settings: AppSettings) {
+        if (appearance == settings) return
+        appearance = settings
+        overrides = ThemeCss.parse(settings.themeCss).colors
+    }
+
+    /** Looks up a raw token, used by surfaces that are not part of the Material scheme. */
+    fun color(name: String, fallback: Long): Color =
+        overrides[name]?.let(::Color) ?: Color(fallback)
+
+    private fun legacy(value: String, fallback: Long): Long = runCatching {
         val raw = value.removePrefix("#").toLong(16)
-        Color(if (value.length == 7) (0xFF000000L or raw) else raw)
-    }.getOrElse { Color(fallback) }
-    val Background get() = read(appearance.backgroundColor, 0xFF0A0F0A)
-    val Foreground = Color(0xFFF8F8F8)
-    val Card get() = read(appearance.animeCardColor, 0xFF111A11)
-    val CardForeground = Color(0xFFF8F8F8)
-    val CardHover = Color(0xFF1A261A)
-    val Muted = Color(0xFF1A261A)
-    val MutedForeground = Color(0xFFA1A1A1)
-    val Border = Color(0x1AFFFFFF)
-    val Input = Color(0x26FFFFFF)
-    val Primary get() = read(appearance.buttonColor, 0xFF87D66A)
-    val PrimaryForeground = Color(0xFF0A0F0A)
-    val Secondary = Color(0xFF1A261A)
-    val SecondaryForeground = Color(0xFFF8F8F8)
-    val Accent = Color(0xFF1A261A)
-    val AccentForeground = Color(0xFFF8F8F8)
-    val Destructive = Color(0xFFF87171)
-    val Sidebar = Color(0xFF080F08)
-    val SidebarAccent get() = read(appearance.sidebarIconBackgroundColor, 0xFF1A261A)
+        if (value.length == 7) 0xFF000000L or raw else raw
+    }.getOrElse { fallback }
+
+    private fun themed(name: String, legacyValue: String, fallback: Long): Color =
+        overrides[name]?.let(::Color) ?: Color(legacy(legacyValue, fallback))
+
+    private fun token(name: String, fallback: Long): Color = color(name, fallback)
+
+    val Background get() = themed("background", appearance.backgroundColor, 0xFF0A0F0A)
+    val Foreground get() = token("foreground", 0xFFF8F8F8)
+    val Card get() = themed("card", appearance.animeCardColor, 0xFF111A11)
+    val CardForeground get() = token("card-foreground", 0xFFF8F8F8)
+    val CardHover get() = token("card-hover", 0xFF1A261A)
+    val Muted get() = token("muted", 0xFF1A261A)
+    val MutedForeground get() = token("muted-foreground", 0xFFA1A1A1)
+    val Border get() = token("border", 0x1AFFFFFF)
+    val Input get() = token("input", 0x26FFFFFF)
+    val Primary get() = themed("primary", appearance.buttonColor, 0xFF87D66A)
+    val PrimaryForeground get() = token("primary-foreground", 0xFF0A0F0A)
+    val Secondary get() = token("secondary", 0xFF1A261A)
+    val SecondaryForeground get() = token("secondary-foreground", 0xFFF8F8F8)
+    val Accent get() = token("accent", 0xFF1A261A)
+    val AccentForeground get() = token("accent-foreground", 0xFFF8F8F8)
+    val Destructive get() = token("destructive", 0xFFF87171)
+    val Sidebar get() = token("sidebar", 0xFF080F08)
+    val SidebarAccent get() = themed("sidebar-accent", appearance.sidebarIconBackgroundColor, 0xFF1A261A)
     val SidebarIconBackgroundEnabled get() = appearance.sidebarIconBackgroundEnabled
     val SidebarIconShape get() = appearance.sidebarIconShape
     val SidebarIconsJoined get() = appearance.sidebarIconsJoined
-    val CheckboxColor get() = read(appearance.checkboxColor, 0xFF87D66A)
-    val CheckboxTickColor get() = read(appearance.checkboxTickColor, 0xFF0A0F0A)
-    val DownloadProgress get() = read(appearance.downloadProgressColor, 0xFF87D66A)
+    val CheckboxColor get() = themed("checkbox", appearance.checkboxColor, 0xFF87D66A)
+    val CheckboxTickColor get() = themed("checkbox-tick", appearance.checkboxTickColor, 0xFF0A0F0A)
+    val DownloadProgress get() = themed("download-progress", appearance.downloadProgressColor, 0xFF87D66A)
     val Ring get() = Primary
-    val Score = Color(0xFF87D66A)
-    val Success = Color(0xFF57F287)
-    val Warning = Color(0xFFFBBF24)
-    val Scrim = Color(0xCC000000)
-    val Chip = Color(0xE60A0F0A)
+    val Score get() = token("score", 0xFF87D66A)
+    val Success get() = token("success", 0xFF57F287)
+    val Warning get() = token("warning", 0xFFFBBF24)
+    val Scrim get() = token("scrim", 0xCC000000)
+    val Chip get() = token("chip", 0xE60A0F0A)
+    val ChipOverlay get() = token("chip-overlay", 0xCC262626)
+    val Overlay get() = token("overlay", 0xCC171717)
+    val Toast get() = token("toast", 0xD9171717)
+    val ToastDanger get() = token("toast-danger", 0xE6B91C1C)
+    val Shadow get() = token("shadow", 0x4D000000)
+    val SeekBarTop get() = token("seekbar-top", 0xFF333333)
+    val SeekBarBottom get() = token("seekbar-bottom", 0xFF111111)
+    val DownloadSurface get() = token("download-surface", 0xFF1E2024)
+    val DownloadSurfaceRaised get() = token("download-surface-raised", 0xFF25272C)
+    val DownloadOutline get() = token("download-outline", 0xFF3A3D43)
+    val DownloadText get() = token("download-text", 0xFFE8E9EC)
+    val DownloadMuted get() = token("download-muted", 0xFFA2A5AC)
+    val DownloadAccent get() = token("download-accent", 0xFFFF8FC9)
+    val DownloadAccentForeground get() = token("download-accent-foreground", 0xFF291522)
 }
 
 private val DarkScheme = darkColorScheme(
