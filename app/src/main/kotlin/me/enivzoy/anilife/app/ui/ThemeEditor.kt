@@ -21,10 +21,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +66,14 @@ fun ThemeEditor(
         delay(350)
         onChange(draft)
         dirty = false
+    }
+
+    // Leaving the tab before the debounce finishes should not drop the last edit.
+    val latestDraft by rememberUpdatedState(draft)
+    val latestDirty by rememberUpdatedState(dirty)
+    val latestOnChange by rememberUpdatedState(onChange)
+    DisposableEffect(Unit) {
+        onDispose { if (latestDirty) latestOnChange(latestDraft) }
     }
 
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
