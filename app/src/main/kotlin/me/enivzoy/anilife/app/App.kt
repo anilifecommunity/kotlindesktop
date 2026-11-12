@@ -48,7 +48,7 @@ import me.enivzoy.anilife.app.data.AppSettingsStore
 import me.enivzoy.anilife.app.data.DEFAULT_DISCORD_APPLICATION_ID
 import me.enivzoy.anilife.app.data.DiscordPresenceManager
 import me.enivzoy.anilife.app.data.DiscordPresenceTarget
-import me.enivzoy.anilife.app.data.MediaProviderManager
+import me.enivzoy.anilife.app.data.ProviderCatalog
 import me.enivzoy.anilife.app.screens.BrowseScreen
 import me.enivzoy.anilife.app.screens.AnimeWatchScreen
 import me.enivzoy.anilife.app.screens.CommandPalette
@@ -84,7 +84,7 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
             videoProviders = animeVideoProviders,
         )
     }
-    val mediaProviders = remember { MediaProviderManager() }
+    val mediaProviders = remember { ProviderCatalog() }
     val discordPresence = remember { DiscordPresenceManager() }
     val releaseNotifier = remember(repository) { ReleaseNotifier(repository) }
     val settings by settingsStore.settings.collectAsState()
@@ -277,11 +277,7 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
                         onSettingsChange = ::updateSettings,
                         onDiscordConnect = ::connectDiscord,
                     )
-                    Screen.Providers -> ProvidersScreen(
-                        manager = mediaProviders,
-                        settings = settings,
-                        onPlay = { title, url, headers -> navigateTo(Screen.Player(title, url, headers)) },
-                    )
+                    Screen.Providers -> ProvidersScreen(catalog = mediaProviders)
                     Screen.Notifications -> NotificationsScreen(
                         store = NoticeStoreInstance,
                         notifier = releaseNotifier,

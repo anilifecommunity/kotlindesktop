@@ -17,6 +17,9 @@ data class ImportedWasmProvider(
 )
 
 class WasmProviderFileStore(private val directory: Path = providerDirectory()) {
+    /** Where imported provider modules are kept. */
+    fun directory(): Path = directory
+
     suspend fun list(): List<ImportedWasmProvider> = withContext(Dispatchers.IO) {
         if (!Files.isDirectory(directory)) return@withContext emptyList()
         Files.list(directory).use { paths ->

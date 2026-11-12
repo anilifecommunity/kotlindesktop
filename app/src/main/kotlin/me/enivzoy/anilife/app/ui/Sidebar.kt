@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
@@ -95,7 +96,7 @@ fun AppSidebar(
             Spacer(Modifier.height(gap))
             NavIcon(Icons.Rounded.Download, "Downloads", selected = current is Screen.Downloads, size = iconSize) { onNavigate(Screen.Downloads) }
             Spacer(Modifier.height(gap))
-            NavIcon(Icons.Rounded.Cloud, "Media providers", selected = current is Screen.Providers, size = iconSize) { onNavigate(Screen.Providers) }
+            NavIcon(Icons.Rounded.Extension, "Providers", selected = current is Screen.Providers, size = iconSize) { onNavigate(Screen.Providers) }
             Spacer(Modifier.height(gap))
             NavIcon(Icons.Rounded.Casino, "Random pick", selected = false, size = iconSize) { onRandom() }
 

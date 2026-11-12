@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Home
@@ -271,7 +271,7 @@ private val PALETTE_PAGES = listOf(
     PalettePage("Schedule", Icons.Rounded.CalendarMonth, Screen.Schedule),
     PalettePage("Library", Icons.Rounded.VideoLibrary, Screen.Library),
     PalettePage("Downloads", Icons.Rounded.Download, Screen.Downloads),
-    PalettePage("Media providers", Icons.Rounded.Cloud, Screen.Providers),
+    PalettePage("Providers", Icons.Rounded.Extension, Screen.Providers),
     PalettePage("Notifications", Icons.Rounded.Notifications, Screen.Notifications),
     PalettePage("Profile", Icons.Rounded.Person, Screen.Profile),
     PalettePage("Settings", Icons.Rounded.Settings, Screen.Settings),

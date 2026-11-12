@@ -33,6 +33,9 @@ internal class WasmAnimeProviders {
     fun sources(title: WasmAnimeTitle, episode: Double, dub: Boolean): List<AnimeVideoSource> =
         compiled.flatMap { provider -> runCatching { provider.sources(title, episode, dub) }.getOrDefault(emptyList()) }
 
+    /** The names the bundled provider modules report, in the order they are tried. */
+    fun bundledProviderNames(): List<String> = compiled.map { provider -> provider.name }
+
     private fun loadProviders(): List<LoadedProvider> = PROVIDER_FILES.mapNotNull { file ->
         runCatching {
             val bytes = javaClass.getResourceAsStream("/providers/$file")?.use { it.readBytes() }
@@ -64,7 +67,7 @@ internal class WasmAnimeProviders {
 
     private inner class LoadedProvider(
         private val component: Component,
-        private val name: String,
+        val name: String,
         private val hosts: Set<String>,
     ) {
         private val cache = ConcurrentHashMap<String, CacheValue>()
