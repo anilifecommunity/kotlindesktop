@@ -2,7 +2,6 @@
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"
-    application
 }
 
 repositories {
@@ -41,8 +40,23 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
 
-application {
-    mainClass.set("me.enivzoy.anilife.app.MainKt")
+compose.desktop {
+    application {
+        mainClass = "me.enivzoy.anilife.app.MainKt"
+        nativeDistributions {
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+            )
+            packageName = "AniLife"
+            packageVersion = "1.0.0"
+            windows {
+                menu = true
+                shortcut = true
+                upgradeUuid = "a1b2c3d4-e5f6-4789-9abc-def012345678"
+            }
+        }
+    }
 }
 
 tasks.test {
