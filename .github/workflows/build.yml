@@ -38,13 +38,18 @@ jobs:
       - name: Build MSI/EXE
         run: .\gradlew :app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
 
-      - name: Upload installer artifact
+      - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AniLife-Windows-Installer
-          path: |
-            app/build/compose/binaries/main/**/*.msi
-            app/build/compose/binaries/main/**/*.exe
+          name: AniLife-Windows-MSI
+          path: app/build/compose/binaries/main/**/*.msi
+          if-no-files-found: warn
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniLife-Windows-EXE
+          path: app/build/compose/binaries/main/**/*.exe
           if-no-files-found: warn
 
   # Optional: publish to GitHub Releases on version tags
@@ -55,10 +60,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download artifact
+      - name: Download MSI artifact
         uses: actions/download-artifact@v4
         with:
-          name: AniLife-Windows-Installer
+          name: AniLife-Windows-MSI
+          path: release-files
+
+      - name: Download EXE artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AniLife-Windows-EXE
           path: release-files
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
