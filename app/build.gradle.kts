@@ -50,6 +50,7 @@ compose.desktop {
             )
             packageName = "AniLife"
             packageVersion = "1.0.0"
+            appResourcesRootDir = file("src/main/appResources")
             windows {
                 menu = true
                 shortcut = true

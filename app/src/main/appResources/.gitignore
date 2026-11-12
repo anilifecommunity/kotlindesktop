@@ -1,0 +1,4 @@
+# libmpv-2.dll is downloaded during CI/release builds; do not commit it.
+*.dll
+*.a
+EOF
