@@ -21,20 +21,6 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Download latest libmpv (Windows x86_64)
-        shell: pwsh
-        run: |
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/mpv-player/mpv/releases/latest" -Headers @{ "User-Agent" = "anilife-build" }
-          $asset = $release.assets | Where-Object { $_.name -match 'libmpv-.*-x86_64-w64-mingw32-lgpl\.zip$' } | Select-Object -First 1
-          if (-not $asset) { throw "libmpv asset not found" }
-          Write-Host "Downloading $($asset.name) from $($asset.browser_download_url)"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile libmpv.zip
-          Expand-Archive -Path libmpv.zip -DestinationPath mpv-extract -Force
-          $dll = Get-ChildItem -Path mpv-extract -Recurse -Filter "libmpv-2.dll" | Select-Object -First 1
-          if (-not $dll) { throw "libmpv-2.dll not found in archive" }
-          Copy-Item -Path $dll.FullName -Destination "app/src/main/appResources/libmpv-2.dll" -Force
-          Write-Host "Bundled $($dll.FullName)"
-
       - name: Build MSI/EXE
         run: .\gradlew :app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
 
