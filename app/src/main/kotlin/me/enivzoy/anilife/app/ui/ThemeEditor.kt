@@ -59,6 +59,7 @@ fun ThemeEditor(
 ) {
     var draft by remember { mutableStateOf(css.ifBlank { ThemeCss.defaultCss() }) }
     var dirty by remember { mutableStateOf(false) }
+    var pickingToken by remember { mutableStateOf<String?>(null) }
     val parsed = remember(draft) { ThemeCss.parse(draft) }
 
     LaunchedEffect(draft) {
@@ -161,6 +162,51 @@ fun ThemeEditor(
             }
             dirty = true
         }
+
+        Text("Palette", color = AniLifeColors.Foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(
+            "Every colour the app uses. Pick one to change it.",
+            color = AniLifeColors.MutedForeground,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        )
+        PaletteStrip(parsed.colors, onPick = { name -> pickingToken = name })
+
+        pickingToken?.let { name ->
+            val token = ThemeCss.tokens.firstOrNull { it.name == name }
+            if (token != null) {
+                val current = parsed.colors[name] ?: ThemeCss.colorOf(token.default) ?: 0xFF000000L
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ColorPickerButton(
+                        color = ThemeCss.color(current),
+                        label = "--${token.name}",
+                        onPicked = { picked ->
+                            draft = setToken(draft, token.name, ThemeCss.toHex(picked))
+                            dirty = true
+                        },
+                    )
+                    OutlinedButton(onClick = { pickingToken = null }) { Text("Close") }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Writes `--name: value;` into the stylesheet, replacing the token's line when it already has
+ * one and appending it otherwise.
+ */
+internal fun setToken(css: String, name: String, value: String): String {
+    val pattern = Regex("(^\\s*)--${Regex.escape(name)}\\s*:\\s*[^;]*;", RegexOption.MULTILINE)
+    val trimmed = css.trimEnd()
+    if (pattern.containsMatchIn(trimmed)) {
+        return pattern.replace(trimmed) { match -> "${match.groupValues[1]}--$name: $value;" }
+    }
+    val line = "  --$name: $value;"
+    return if (trimmed.endsWith("}")) {
+        trimmed.dropLast(1).trimEnd() + "\n$line\n}"
+    } else {
+        "$trimmed\n$line"
     }
 }
 
@@ -196,33 +242,88 @@ private fun ThemePreview(parsed: ThemeCss.Parsed) {
     fun token(name: String, fallback: Long = 0xFF000000) =
         ThemeCss.color(parsed.colors[name] ?: fallback)
 
-    Row(
+    Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(token("background", 0xFF0A0F0A))
             .border(1.dp, AniLifeColors.Border, RoundedCornerShape(12.dp))
             .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(
-            Modifier.weight(1f)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                Modifier.weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(token("card", 0xFF111A11))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    "Preview",
+                    color = token("card-foreground", 0xFFF8F8F8),
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "Muted text",
+                    color = token("muted-foreground", 0xFFA1A1A1),
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+            Box(
+                Modifier.clip(RoundedCornerShape(9.dp))
+                    .background(token("primary", 0xFF87D66A))
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+            ) {
+                Text(
+                    "Play",
+                    color = token("primary-foreground", 0xFF0A0F0A),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            Spacer(Modifier.width(2.dp))
+        }
+
+        // The sidebar and a card, so the palette is seen the way the app shows it.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(74.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(token("card", 0xFF111A11))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .background(token("sidebar", 0xFF080F08)),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Preview", color = token("card-foreground", 0xFFF8F8F8), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text("Muted text", color = token("muted-foreground", 0xFFA1A1A1), fontSize = 11.sp)
+            Box(
+                Modifier
+                    .width(46.dp)
+                    .fillMaxWidth()
+                    .height(74.dp)
+                    .background(token("primary", 0xFF87D66A).copy(alpha = 0.16f)),
+            )
+            Box(
+                Modifier
+                    .padding(start = 12.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(token("card", 0xFF111A11))
+                    .border(1.dp, token("border", 0x1AFFFFFF), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            ) {
+                Text(
+                    "AniLife",
+                    color = token("foreground", 0xFFF8F8F8),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
-        Box(
-            Modifier.clip(RoundedCornerShape(9.dp))
-                .background(token("primary", 0xFF87D66A))
-                .padding(horizontal = 14.dp, vertical = 9.dp),
-        ) {
-            Text("Play", color = token("primary-foreground", 0xFF0A0F0A), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-        }
-        Spacer(Modifier.width(2.dp))
     }
 }
 

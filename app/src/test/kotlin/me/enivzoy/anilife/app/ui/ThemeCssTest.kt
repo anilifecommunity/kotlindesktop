@@ -92,4 +92,38 @@ class ThemeCssTest {
         assertNull(ThemeCss.colorOf("hsl(120, 50%, 50%)"))
         assertEquals(0xFFAABBCCL, ThemeCss.colorOf("#ABC"))
     }
+
+    @Test
+    fun theSettingsWindowSharesTheAppPalette() {
+        assertTrue(ThemeCss.tokens.none { it.name.startsWith("settings-") })
+    }
+
+    @Test
+    fun aPickedColorReplacesTheTokenItBelongsTo() {
+        val css = """
+            :root {
+              --primary: #87D66A;
+              --background: #0A0F0A;
+            }
+        """.trimIndent()
+
+        val updated = setToken(css, "primary", "#FF0000")
+
+        assertEquals("#FF0000", ThemeCss.parse(updated).colors["primary"]?.let { ThemeCss.toHex(it) })
+        assertEquals(0xFF0A0F0AL, ThemeCss.parse(updated).colors["background"])
+    }
+
+    @Test
+    fun aPickedColorIsAddedWhenTheTokenIsMissing() {
+        val css = """
+            :root {
+              --primary: #87D66A;
+            }
+        """.trimIndent()
+
+        val updated = setToken(css, "background", "#101010")
+
+        assertEquals(0xFF101010L, ThemeCss.parse(updated).colors["background"])
+        assertEquals(0xFF87D66AL, ThemeCss.parse(updated).colors["primary"])
+    }
 }

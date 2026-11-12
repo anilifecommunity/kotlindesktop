@@ -105,6 +105,16 @@ object ThemeCss {
         return if (alpha == 0xFFL) "#%06X".format(rgb) else "#%06X%02X".format(rgb, alpha)
     }
 
+    /** The CSS hex for a Compose colour, in the same `#RRGGBB` / `#RRGGBBAA` order. */
+    fun toHex(color: Color): String {
+        val alpha = (color.alpha * 255f).toInt().coerceIn(0, 255)
+        val red = (color.red * 255f).toInt().coerceIn(0, 255)
+        val green = (color.green * 255f).toInt().coerceIn(0, 255)
+        val blue = (color.blue * 255f).toInt().coerceIn(0, 255)
+        val argb = (alpha.toLong() shl 24) or (red.toLong() shl 16) or (green.toLong() shl 8) or blue.toLong()
+        return toHex(argb)
+    }
+
     fun color(argb: Long): Color = Color(argb)
 
     private fun stripComments(css: String): String =
