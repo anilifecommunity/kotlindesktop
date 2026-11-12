@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
@@ -32,8 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -84,6 +86,7 @@ private val HiddenPlayerCursor: PointerIcon by lazy {
     }.getOrDefault(PointerIcon.Default)
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PlayerScreen(
     title: String,
@@ -317,10 +320,22 @@ fun PlayerScreen(
         if (engine?.isLoading == false) engine.setSpeed(playbackSpeed.toDouble())
     }
 
-    LaunchedEffect(pointerActivity) {
+    // The chrome hides itself after a while, but only while the picture moves: a paused player
+    // keeps its controls, so the viewer can still scrub and resume.
+    LaunchedEffect(pointerActivity, isPlaying) {
         delay(3_000L)
+        if (!isPlaying) return@LaunchedEffect
         controlsVisible = false
         openPanel = null
+    }
+
+    // How long the picture has been paused, for the anime details.
+    var pausedLongEnough by remember(title, episode, url) { mutableStateOf(false) }
+    LaunchedEffect(isPlaying) {
+        pausedLongEnough = false
+        if (isPlaying) return@LaunchedEffect
+        delay(PAUSE_DETAILS_DELAY_MS)
+        pausedLongEnough = true
     }
 
     // Keyboard shortcuts, the same set the reference player answers to.
@@ -379,16 +394,20 @@ fun PlayerScreen(
                 }
             }
             .focusRequester(focusRequester)
+            // The mouse moving anywhere over the picture brings the chrome back. Desktop reports
+            // movement as a Move event, which the pointer block below would otherwise miss.
+            .onPointerEvent(PointerEventType.Move) {
+                controlsVisible = true
+                pointerActivity += 1
+            }
             .pointerInput(title, episode) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
-                    val active = event.changes.any { change ->
-                        change.position != change.previousPosition ||
-                            change.positionChangeIgnoreConsumed() != Offset.Zero ||
-                            change.pressed != change.previousPressed
+                    val pressed = event.changes.any { change ->
+                        change.pressed != change.previousPressed
                     }
-                    if (active) {
+                    if (pressed) {
                         controlsVisible = true
                         pointerActivity += 1
                     }
@@ -416,7 +435,20 @@ fun PlayerScreen(
                     .padding(horizontal = 12.dp, vertical = 7.dp),
                 color = Color.White.copy(alpha = 0.82f),
                 fontSize = 12.sp,
+                lineHeight = 14.sp,
                 fontWeight = FontWeight.Medium,
+            )
+        }
+
+        // With the anime details turned on, a paused player shows the episode's billing over
+        // the picture instead of the controls.
+        if (settings.pauseDetails && !isPlaying && pausedLongEnough) {
+            PlayerPauseDetails(
+                title = showTitle,
+                episodeTitle = episodeTitle,
+                provider = selectedSource?.provider,
+                description = detail?.description?.takeIf { it.isNotBlank() },
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
@@ -623,6 +655,9 @@ internal const val NEXT_EPISODE_FINAL_SECONDS = 5
 /** How long the up-next card counts before it plays the next episode itself. */
 internal const val NEXT_EPISODE_COUNTDOWN_SECONDS = 8
 
+/** How long a pause has to hold before the episode's billing shows over the picture. */
+internal const val PAUSE_DETAILS_DELAY_MS = 15_000L
+
 /**
  * Whether the next episode should be offered now: only in the file's last half-minute, and while
  * highlighted credits still roll, not until they finish (or five seconds are all that's left), so
@@ -645,7 +680,80 @@ internal fun PlayerSkipAction(label: String, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(label, color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/**
+ * The episode's billing over a paused picture: the series, the episode and its synopsis, so a
+ * viewer coming back to the screen knows what they are looking at.
+ */
+@Composable
+internal fun PlayerPauseDetails(
+    title: String,
+    episodeTitle: String?,
+    provider: String?,
+    description: String?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.background(
+            Brush.horizontalGradient(
+                0f to Color.Black.copy(alpha = 0.86f),
+                0.62f to Color.Black.copy(alpha = 0.55f),
+                1f to Color.Transparent,
+            )
+        ),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Column(
+            Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 56.dp, end = 40.dp)
+                .widthIn(max = 520.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                title,
+                color = Color.White,
+                fontSize = 30.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!episodeTitle.isNullOrBlank()) {
+                Text(
+                    episodeTitle,
+                    color = Color.White.copy(alpha = 0.92f),
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (!provider.isNullOrBlank()) {
+                Text(
+                    provider,
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (!description.isNullOrBlank()) {
+                Text(
+                    description.replace(Regex("<[^>]*>"), "").trim(),
+                    color = Color.White.copy(alpha = 0.78f),
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -669,11 +777,12 @@ internal fun PlayerUpNextCard(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Up next", color = Color.White.copy(alpha = 0.62f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text("Up next", color = Color.White.copy(alpha = 0.62f), fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium)
         Text(
             label,
             color = Color.White,
             fontSize = 14.sp,
+            lineHeight = 17.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -690,6 +799,7 @@ internal fun PlayerUpNextCard(
                     if (countdown != null) "Play now · ${countdown}s" else "Play now",
                     color = Color.White,
                     fontSize = 13.sp,
+                    lineHeight = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -701,7 +811,7 @@ internal fun PlayerUpNextCard(
                     .clickable(onClick = onStay)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
-                Text("Stay", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Stay", color = Color.White, fontSize = 13.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

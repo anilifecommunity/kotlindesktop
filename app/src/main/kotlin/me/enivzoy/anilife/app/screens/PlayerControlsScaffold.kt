@@ -131,13 +131,21 @@ internal fun PlayerControlsScaffold(
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("NOW PLAYING", color = Color.White.copy(alpha = 0.56f), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.8.sp)
+                Text(
+                    "NOW PLAYING",
+                    color = Color.White.copy(alpha = 0.56f),
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.8.sp,
+                )
                 Text(title, color = Color.White, fontSize = metrics.titleTextSize, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!subtitle.isNullOrBlank()) {
                     Text(
                         subtitle,
                         color = Color.White.copy(alpha = 0.68f),
                         fontSize = if (metrics.showPillLabels) 13.sp else 12.sp,
+                        lineHeight = if (metrics.showPillLabels) 15.sp else 14.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -150,7 +158,10 @@ internal fun PlayerControlsScaffold(
                         ?: now.format(DateTimeFormatter.ofPattern("HH:mm")),
                     Modifier.clip(RoundedCornerShape(9.dp)).background(Color.Black.copy(alpha = 0.48f))
                         .border(1.dp, Color.White.copy(alpha = 0.13f), RoundedCornerShape(9.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
-                    color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    fontWeight = FontWeight.Medium,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp), content = topRight)
             }
@@ -317,14 +328,29 @@ internal fun PlayerActionPill(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = if (enabled) 1f else 0.35f), modifier = Modifier.size(17.dp))
-            Text(label, color = Color.White.copy(alpha = if (enabled) 1f else 0.35f), fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+            Text(
+                label,
+                color = Color.White.copy(alpha = if (enabled) 1f else 0.35f),
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                softWrap = false,
+            )
         }
     }
 }
 
 @Composable
 private fun TimePill(value: String, fontSize: androidx.compose.ui.unit.TextUnit) {
-    Text(value, Modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black.copy(alpha = 0.48f))
-        .padding(horizontal = 8.dp, vertical = 4.dp), color = Color.White.copy(alpha = 0.88f), fontSize = fontSize, fontWeight = FontWeight.Medium)
+    Text(
+        value,
+        Modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black.copy(alpha = 0.48f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        color = Color.White.copy(alpha = 0.88f),
+        fontSize = fontSize,
+        lineHeight = fontSize.value.sp,
+        fontWeight = FontWeight.Medium,
+    )
 }
 

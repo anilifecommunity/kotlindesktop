@@ -137,7 +137,14 @@ fun Chip(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         leading?.invoke()
-        Text(text = text, color = content, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(
+            text = text,
+            color = content,
+            fontSize = 12.sp,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
     }
 }
 
@@ -162,6 +169,7 @@ fun ScoreTag(score: Double, modifier: Modifier = Modifier) {
             text = "${score.toInt()}%",
             color = AniLifeColors.Foreground,
             fontSize = 11.sp,
+            lineHeight = 13.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }
