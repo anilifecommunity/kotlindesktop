@@ -29,8 +29,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("ai.tegmentum:wasmtime4j:48.0.0-2.0.0")
-    implementation("ai.tegmentum:wasmtime4j-jni:48.0.0-2.0.0")
-    implementation("ai.tegmentum:wasmtime4j-panama:48.0.0-2.0.0")
+    implementation("ai.tegmentum:wasmtime4j-jni:48.0.0-2.0.0") {
+        exclude(group = "ai.tegmentum", module = "wasmtime4j-native")
+    }
+    implementation("ai.tegmentum:wasmtime4j-native:48.0.0-2.0.0:windows-x86_64")
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
@@ -46,6 +48,7 @@ compose.desktop {
             packageName = "AniLife"
             packageVersion = "1.0.0"
             appResourcesRootDir = file("src/main/appResources")
+            modules("java.instrument", "java.net.http", "jdk.httpserver", "jdk.unsupported")
             windows {
                 menu = true
                 shortcut = true
