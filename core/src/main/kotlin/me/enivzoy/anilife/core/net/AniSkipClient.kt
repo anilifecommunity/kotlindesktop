@@ -93,7 +93,6 @@ class AniSkipClient(
         val body = lookup(malId, episode, episodeLengthSeconds) ?: return null
         parseSkipTimes(body, episodeLengthSeconds)?.let { return it }
 
-        // Only an empty answer pays for the redirect table.
         val rules = try {
             relationRules(malId)
         } catch (cancelled: CancellationException) {

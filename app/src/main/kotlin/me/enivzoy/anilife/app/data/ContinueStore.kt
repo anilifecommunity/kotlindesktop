@@ -61,7 +61,6 @@ class ContinueStore(private val file: File = continueFile()) {
         val progress = entry.progress
         if (progress.episode != episode) return null
         if (progress.duration <= 0.0) return null
-        // Past the point where an episode counts as watched.
         if (progress.position >= progress.duration * 0.9) return null
         if (progress.position < 10.0) return null
         (progress.position - 3.0).coerceAtLeast(0.0)

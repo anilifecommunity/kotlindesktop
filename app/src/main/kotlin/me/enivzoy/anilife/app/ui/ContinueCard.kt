@@ -69,7 +69,6 @@ fun ContinueCard(
                 contentDescription = anime.title,
                 modifier = Modifier.fillMaxSize(),
             )
-            // Play overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -85,7 +84,6 @@ fun ContinueCard(
                     modifier = Modifier.size(36.dp),
                 )
             }
-            // Corner actions
             CornerIconButton(
                 icon = Icons.Rounded.Info,
                 description = "Details",
@@ -98,7 +96,6 @@ fun ContinueCard(
                 modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
                 onClick = { onRemove(anime.id) },
             )
-            // Progress bar
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)

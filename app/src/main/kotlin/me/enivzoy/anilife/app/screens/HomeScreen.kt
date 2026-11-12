@@ -109,7 +109,6 @@ private fun HomeContent(home: Home, repository: AniListRepository, onOpen: (Long
         ).filter { it.second.isNotEmpty() }
     }
 
-    // Hero follows the spotlight row's first visible card.
     var heroAnime by remember { mutableStateOf<AnimeCard?>(spotlightItems.firstOrNull() ?: featured.firstOrNull()) }
     val spotlightState = rememberLazyListState()
     LaunchedEffect(spotlightState, spotlightItems) {
@@ -121,14 +120,12 @@ private fun HomeContent(home: Home, repository: AniListRepository, onOpen: (Long
             }
     }
 
-    // Fetch synopsis for the hero.
     var heroDetail by remember { mutableStateOf<AnimeDetail?>(null) }
     LaunchedEffect(heroAnime) {
         val anime = heroAnime ?: return@LaunchedEffect
         heroDetail = runCatching { repository.detail(anime.id) }.getOrNull()
     }
 
-    // "Because you watched <seed>" recommendations.
     var becauseSeed by remember { mutableStateOf<AnimeCard?>(null) }
     var becauseItems by remember { mutableStateOf<List<AnimeCard>>(emptyList()) }
     LaunchedEffect(libraryEntries) {
@@ -199,7 +196,6 @@ private fun HomeContent(home: Home, repository: AniListRepository, onOpen: (Long
                 }
             }
 
-            // Spotlight row: horizontal scroll drives the pinned hero.
             item(key = "spotlight") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(

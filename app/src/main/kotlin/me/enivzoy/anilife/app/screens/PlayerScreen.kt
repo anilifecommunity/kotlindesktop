@@ -290,7 +290,6 @@ fun PlayerScreen(
         var remaining = NEXT_EPISODE_COUNTDOWN_SECONDS
         while (remaining > 0) {
             upNextCountdown = remaining
-            // A pause holds the count, so the countdown counts played time.
             if (!playingNow.value) {
                 kotlinx.coroutines.delay(250)
                 continue
@@ -320,8 +319,6 @@ fun PlayerScreen(
         if (engine?.isLoading == false) engine.setSpeed(playbackSpeed.toDouble())
     }
 
-    // The chrome hides itself after a while, but only while the picture moves: a paused player
-    // keeps its controls, so the viewer can still scrub and resume.
     LaunchedEffect(pointerActivity, isPlaying) {
         delay(3_000L)
         if (!isPlaying) return@LaunchedEffect
@@ -329,7 +326,6 @@ fun PlayerScreen(
         openPanel = null
     }
 
-    // How long the picture has been paused, for the anime details.
     var pausedLongEnough by remember(title, episode, url) { mutableStateOf(false) }
     LaunchedEffect(isPlaying) {
         pausedLongEnough = false
@@ -338,7 +334,6 @@ fun PlayerScreen(
         pausedLongEnough = true
     }
 
-    // Keyboard shortcuts, the same set the reference player answers to.
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(focusRequester) {
         runCatching { focusRequester.requestFocus() }
@@ -440,8 +435,6 @@ fun PlayerScreen(
             )
         }
 
-        // With the anime details turned on, a paused player shows the episode's billing over
-        // the picture instead of the controls.
         if (settings.pauseDetails && !isPlaying && pausedLongEnough) {
             PlayerPauseDetails(
                 title = showTitle,

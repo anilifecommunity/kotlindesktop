@@ -92,7 +92,6 @@ class AniListRepository(
         val wholeNumbers = episodes.filter { it > 0 && it % 1.0 == 0.0 }.map(Double::toInt)
         if (wholeNumbers.isEmpty()) return emptyMap()
         val titles = mutableMapOf<Int, String>()
-        // Try AniList first, then fall back to MyAnimeList for anything still missing.
         try {
             titles += client.episodeTitles(anime.id).filterKeys { it in wholeNumbers }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {

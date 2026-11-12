@@ -38,7 +38,6 @@ class ReleaseNotifier(
             val entry = byId[anime.id] ?: return@forEach
             val episode = entry.episode
             if (store.hasAnnounced(anime.id, episode)) return@forEach
-            // A title that has not aired yet stays silent.
             if (entry.airingAt > System.currentTimeMillis() / 1000) return@forEach
             store.add(
                 kind = "airing",

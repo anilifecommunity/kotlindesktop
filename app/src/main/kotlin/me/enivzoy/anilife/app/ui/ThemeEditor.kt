@@ -309,7 +309,6 @@ private fun ThemePreview(parsed: ThemeCss.Parsed) {
             Spacer(Modifier.width(2.dp))
         }
 
-        // The sidebar and a card, so the palette is seen the way the app shows it.
         Row(
             Modifier
                 .fillMaxWidth()

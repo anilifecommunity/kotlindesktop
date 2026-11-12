@@ -757,7 +757,6 @@ private fun EpisodeList(
             }
         }
     } else {
-    // Library grid view
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 8.dp),
@@ -770,7 +769,6 @@ private fun EpisodeList(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
-            // Tabs
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("library" to "Library", "queue" to "Queue").forEach { (value, label) ->
                     if (tab == value) {
@@ -815,7 +813,6 @@ private fun EpisodeList(
                 }
             }
         }
-        // Search + sort
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
