@@ -90,6 +90,18 @@ object AniLifeColors {
     val DownloadMuted get() = token("download-muted", 0xFFA2A5AC)
     val DownloadAccent get() = token("download-accent", 0xFFFF8FC9)
     val DownloadAccentForeground get() = token("download-accent-foreground", 0xFF291522)
+    val SettingsBackground get() = token("settings-bg", 0xFF000000)
+    val SettingsPanel get() = token("settings-panel", 0xFF090909)
+    val SettingsBorder get() = token("settings-border", 0xFF1A1A1A)
+    val SettingsDivider get() = token("settings-divider", 0xFF212222)
+    val SettingsSelected get() = token("settings-selected", 0xFF222222)
+    val SettingsSelectedForeground get() = token("settings-selected-foreground", 0xFFFAFAFA)
+    val SettingsControl get() = token("settings-control", 0xFF0B0B0B)
+    val SettingsControlBorder get() = token("settings-control-border", 0xFF2A2A2A)
+    val SettingsControlActive get() = token("settings-control-active", 0xFFE5E5E5)
+    val SettingsControlActiveForeground get() = token("settings-control-active-foreground", 0xFF1B1B1B)
+    val SettingsSwitchTrack get() = token("settings-switch-track", 0xFF272727)
+    val SettingsSwitchKnob get() = token("settings-switch-knob", 0xFFE5E5E5)
 }
 
 private val DarkScheme = darkColorScheme(
