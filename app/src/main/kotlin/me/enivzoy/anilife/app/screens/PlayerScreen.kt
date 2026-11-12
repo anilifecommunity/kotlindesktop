@@ -1,12 +1,14 @@
 ﻿package me.enivzoy.anilife.app.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +48,7 @@ import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Slider
 import me.enivzoy.anilife.app.data.ContinueStoreInstance
@@ -57,6 +60,9 @@ import me.enivzoy.anilife.app.data.MyAnimeListSync
 import me.enivzoy.anilife.app.player.MpvPlaybackEngine
 import me.enivzoy.anilife.core.model.AnimeCard
 import me.enivzoy.anilife.core.model.AnimeDetail
+import me.enivzoy.anilife.core.model.SkipTimes
+import me.enivzoy.anilife.core.model.Window
+import me.enivzoy.anilife.core.net.AniSkipClient
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -102,6 +108,16 @@ fun PlayerScreen(
         ((durationMinutes ?: 24).coerceAtLeast(1) * 60).toDouble()
     }
     val selectedSource = remember(alternatives, url) { alternatives.firstOrNull { it.url == url } ?: alternatives.firstOrNull() }
+
+    val aniskip = remember { AniSkipClient() }
+    var skipTimes by remember(title, episode) { mutableStateOf<SkipTimes?>(null) }
+    LaunchedEffect(detail?.malId, episode) {
+        val malId = detail?.malId ?: return@LaunchedEffect
+        val ep = episode?.toInt() ?: return@LaunchedEffect
+        if (ep <= 0) return@LaunchedEffect
+        val length = ((durationMinutes ?: 24).coerceAtLeast(1) * 60).toDouble()
+        skipTimes = runCatching { aniskip.skipTimes(malId, ep, length) }.getOrNull()
+    }
 
     val engine = remember(url, headers, selectedSource?.subtitles) {
         url?.takeIf(String::isNotBlank)?.let { stream ->
@@ -190,6 +206,41 @@ fun PlayerScreen(
     var openPanel by remember { mutableStateOf<String?>(null) }
     var controlsVisible by remember(title, episode) { mutableStateOf(true) }
     var pointerActivity by remember(title, episode) { mutableIntStateOf(0) }
+
+    val activeSkip = remember(skipTimes, positionSeconds, durationSeconds) {
+        activeSkipWindow(skipTimes, positionSeconds, durationSeconds)
+    }
+    val activeSkipKey = activeSkip?.let { "${it.kind}-${it.window.start}-${it.window.end}" }
+    var handledSkipKeys by remember(title, episode, url) { mutableStateOf(emptySet<String>()) }
+    var autoSkipCountdown by remember(title, episode, url) { mutableStateOf<Int?>(null) }
+    var skipPopupSince by remember(title, episode, url) { mutableStateOf<Double?>(null) }
+    LaunchedEffect(activeSkipKey) {
+        if (activeSkipKey != null) skipPopupSince = positionSeconds
+    }
+    LaunchedEffect(activeSkip, settings.autoSkipIntro, settings.autoSkipOutro, activeSkipKey) {
+        val active = activeSkip ?: return@LaunchedEffect
+        val autoEnabled = if (active.kind == "outro") settings.autoSkipOutro else settings.autoSkipIntro
+        if (!autoEnabled || activeSkipKey in handledSkipKeys) return@LaunchedEffect
+        try {
+            for (remaining in 3 downTo 1) {
+                autoSkipCountdown = remaining
+                kotlinx.coroutines.delay(1000)
+            }
+            autoSkipCountdown = null
+            if (activeSkipKey != null) handledSkipKeys = handledSkipKeys + activeSkipKey
+            val target = skipTarget(active, durationSeconds)
+            if (engine != null) engine.seekTo(target)
+            else simulatedPosition = target.coerceIn(0.0, fallbackDurationSeconds)
+        } finally {
+            autoSkipCountdown = null
+        }
+    }
+    val autoSkipEnabled = activeSkip?.let { window ->
+        if (window.kind == "outro") settings.autoSkipOutro else settings.autoSkipIntro
+    } ?: false
+    val skipOverlayVisible = activeSkip != null && activeSkipKey !in handledSkipKeys &&
+        (settings.showSkipButton || autoSkipEnabled) &&
+        (controlsVisible || (skipPopupSince != null && positionSeconds - skipPopupSince!! <= 10.0) || autoSkipCountdown != null)
     var playbackSpeed by remember(title, episode) { mutableFloatStateOf(1f) }
     val episodeRows = remember(episodes, episodeTitles, episodeThumbnails) {
         episodes.distinct().sorted().map { AnimeEpisode(it, episodeTitles[it], episodeThumbnails[it]) }
@@ -267,6 +318,23 @@ fun PlayerScreen(
             )
         }
 
+        val shownSkip = if (skipOverlayVisible) activeSkip else null
+        if (shownSkip != null) {
+            val skip = shownSkip
+            Box(Modifier.align(Alignment.BottomEnd).padding(end = 36.dp, bottom = 148.dp)) {
+                PlayerSkipAction(
+                    label = if (autoSkipCountdown != null) "${skip.label} ($autoSkipCountdown)" else skip.label,
+                    onClick = {
+                        if (activeSkipKey != null) handledSkipKeys = handledSkipKeys + activeSkipKey
+                        autoSkipCountdown = null
+                        val target = skipTarget(skip, durationSeconds)
+                        if (engine != null) engine.seekTo(target)
+                        else simulatedPosition = target.coerceIn(0.0, fallbackDurationSeconds)
+                    },
+                )
+            }
+        }
+
         AnimatedVisibility(
             visible = controlsVisible,
             modifier = Modifier.fillMaxSize(),
@@ -315,6 +383,16 @@ fun PlayerScreen(
                 )
             },
             bottomActions = { showLabels ->
+                if (settings.showSkipButton && skipTimes == null) PlayerActionPill(
+                    label = "Skip ${settings.skipButtonSeconds}s",
+                    icon = Icons.Rounded.FastForward,
+                    onClick = {
+                        val delta = settings.skipButtonSeconds.toDouble()
+                        if (engine != null) engine.seekRelative(delta)
+                        else simulatedPosition = (simulatedPosition + delta).coerceAtMost(fallbackDurationSeconds)
+                    },
+                    showLabel = showLabels,
+                )
                 if (alternatives.isNotEmpty()) PlayerActionPill(
                     label = selectedSource?.provider ?: "Sources",
                     icon = Icons.Rounded.Dns,
@@ -390,4 +468,48 @@ internal fun formatEpisodeNumber(number: Double): String =
 internal fun estimateEpisodeEndTime(now: LocalTime, durationMinutes: Int): String? =
     durationMinutes.takeIf { it > 0 }
         ?.let { now.plusMinutes(it.toLong()).format(DateTimeFormatter.ofPattern("H:mm")) }
+
+internal data class PlayerSkipWindow(
+    val kind: String,
+    val label: String,
+    val window: Window,
+)
+
+internal fun activeSkipWindow(skip: SkipTimes?, position: Double, duration: Double): PlayerSkipWindow? {
+    skip?.recap?.let { window ->
+        if (window.isValid && position >= window.start && position < window.end) {
+            return PlayerSkipWindow("recap", "Skip Recap", window)
+        }
+    }
+    skip?.intro?.let { window ->
+        if (window.isValid && position >= window.start && position < window.end) {
+            return PlayerSkipWindow("intro", "Skip Intro", window)
+        }
+    }
+    skip?.outro?.let { window ->
+        if (window.isValid && position >= window.start && position < window.end && outroIsCredits(window, duration)) {
+            return PlayerSkipWindow("outro", "Skip Outro", window)
+        }
+    }
+    return null
+}
+
+internal fun outroIsCredits(window: Window, duration: Double): Boolean =
+    duration > 0.0 && window.end >= duration * 0.75
+
+internal fun skipTarget(window: PlayerSkipWindow, duration: Double): Double =
+    if (window.kind == "outro" && duration > 0.0) minOf(window.window.end, duration) else window.window.end
+
+@Composable
+internal fun PlayerSkipAction(label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(999.dp))
+            .background(Color.Black.copy(alpha = 0.62f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
 

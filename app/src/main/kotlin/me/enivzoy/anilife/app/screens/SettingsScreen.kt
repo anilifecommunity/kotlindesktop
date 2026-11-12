@@ -187,6 +187,8 @@ private val settingSearchEntries = listOf(
     SettingSearchEntry("Autoplay next episode", SettingsPage.Player, "next episode countdown autoplay"),
     SettingSearchEntry("Skip button", SettingsPage.Player, "opening ending intro outro forward"),
     SettingSearchEntry("Skip button length", SettingsPage.Player, "seconds duration skip"),
+    SettingSearchEntry("Skip intro and recap automatically", SettingsPage.Player, "intro outro recap opening skip auto"),
+    SettingSearchEntry("Skip outro automatically", SettingsPage.Player, "intro outro recap ending skip auto"),
     SettingSearchEntry("Screen size", SettingsPage.Player, "fit crop fill scaling display"),
     SettingSearchEntry("Player volume", SettingsPage.Player, "audio sound volume"),
     SettingSearchEntry("Show captions by default", SettingsPage.Subtitles, "captions subtitles text default"),
@@ -386,6 +388,18 @@ private fun PlayerSettings(settings: AppSettings, onSettingsChange: ((AppSetting
                     onChange = { value -> onSettingsChange { it.copy(skipButtonSeconds = value) } },
                 )
             }
+        }
+        SettingsRow(
+            "Skip intro and recap automatically",
+            "Jump over the recap and opening once they start, after a short countdown.",
+        ) {
+            SettingsSwitch(settings.autoSkipIntro) { enabled -> onSettingsChange { it.copy(autoSkipIntro = enabled) } }
+        }
+        SettingsRow(
+            "Skip outro automatically",
+            "Jump to the end of the episode when the credits reach the last quarter.",
+        ) {
+            SettingsSwitch(settings.autoSkipOutro) { enabled -> onSettingsChange { it.copy(autoSkipOutro = enabled) } }
         }
     }
     SettingsSection("Picture") {

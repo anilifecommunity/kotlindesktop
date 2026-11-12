@@ -118,7 +118,10 @@ data class SearchPage(val results: List<AnimeCard> = emptyList(), val hasNext: B
 
 data class AiringEntry(val airingAt: Long, val episode: Int, val anime: AnimeCard)
 
-data class Window(val start: Long, val end: Long)
+/** A stretch of an episode in seconds, used for skip markers. */
+data class Window(val start: Double, val end: Double) {
+    val isValid: Boolean get() = start.isFinite() && end.isFinite() && end > start
+}
 
 data class SkipTimes(val intro: Window? = null, val outro: Window? = null, val recap: Window? = null)
 

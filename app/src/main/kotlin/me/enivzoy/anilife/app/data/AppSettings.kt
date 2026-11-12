@@ -19,6 +19,8 @@ data class AppSettings(
     val contentScale: String = "fit",
     val showSkipButton: Boolean = true,
     val skipButtonSeconds: Int = 85,
+    val autoSkipIntro: Boolean = false,
+    val autoSkipOutro: Boolean = false,
     val volume: Int = 100,
     val subtitleScale: Float = 1f,
     val captionFont: String = "SansSerif",
@@ -69,6 +71,8 @@ class AppSettingsStore(private val file: File = settingsFile()) {
             contentScale = properties.getProperty("contentScale", "fit"),
             showSkipButton = properties.getProperty("showSkipButton", "true").toBooleanStrictOrNull() ?: true,
             skipButtonSeconds = properties.getProperty("skipButtonSeconds", "85").toIntOrNull() ?: 85,
+            autoSkipIntro = properties.getProperty("autoSkipIntro", "false").toBooleanStrictOrNull() ?: false,
+            autoSkipOutro = properties.getProperty("autoSkipOutro", "false").toBooleanStrictOrNull() ?: false,
             volume = properties.getProperty("volume", "100").toIntOrNull() ?: 100,
             subtitleScale = properties.getProperty("subtitleScale", "1.0").toFloatOrNull() ?: 1f,
             captionFont = properties.getProperty("captionFont", "SansSerif"),
@@ -107,6 +111,8 @@ class AppSettingsStore(private val file: File = settingsFile()) {
             setProperty("contentScale", settings.contentScale)
             setProperty("showSkipButton", settings.showSkipButton.toString())
             setProperty("skipButtonSeconds", settings.skipButtonSeconds.toString())
+            setProperty("autoSkipIntro", settings.autoSkipIntro.toString())
+            setProperty("autoSkipOutro", settings.autoSkipOutro.toString())
             setProperty("volume", settings.volume.toString())
             setProperty("subtitleScale", settings.subtitleScale.toString())
             setProperty("captionFont", settings.captionFont)
