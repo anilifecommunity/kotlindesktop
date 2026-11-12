@@ -16,6 +16,9 @@ build-*.log
 *.jar
 *.log
 
+# Keep the Gradle wrapper jar tracked (needed for CI)
+!gradle/wrapper/gradle-wrapper.jar
+
 # Local reference material (mockups, screenshots, build logs)
 /design/
 
