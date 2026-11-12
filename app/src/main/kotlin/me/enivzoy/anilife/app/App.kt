@@ -56,13 +56,15 @@ import me.enivzoy.anilife.app.screens.DetailScreen
 import me.enivzoy.anilife.app.screens.DownloadsScreen
 import me.enivzoy.anilife.app.screens.HomeScreen
 import me.enivzoy.anilife.app.screens.LibraryScreen
-import me.enivzoy.anilife.app.screens.PlaceholderScreen
 import me.enivzoy.anilife.app.screens.PlayerScreen
 import me.enivzoy.anilife.app.screens.ProvidersScreen
 import me.enivzoy.anilife.app.screens.ScheduleScreen
 import me.enivzoy.anilife.app.screens.SettingsScreen
 import me.enivzoy.anilife.app.screens.MyAnimeListScreen
+import me.enivzoy.anilife.app.screens.NotificationsScreen
 import me.enivzoy.anilife.app.data.MyAnimeListSync
+import me.enivzoy.anilife.app.data.NoticeStoreInstance
+import me.enivzoy.anilife.app.data.ReleaseNotifier
 import me.enivzoy.anilife.app.ui.AniLifeColors
 import me.enivzoy.anilife.app.ui.AppSidebar
 import me.enivzoy.anilife.mpv.Mpv
@@ -84,6 +86,7 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
     }
     val mediaProviders = remember { MediaProviderManager() }
     val discordPresence = remember { DiscordPresenceManager() }
+    val releaseNotifier = remember(repository) { ReleaseNotifier(repository) }
     val settings by settingsStore.settings.collectAsState()
     val discordState by discordPresence.state.collectAsState()
     val backStack = remember { mutableStateListOf<Screen>() }
@@ -279,7 +282,11 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
                         settings = settings,
                         onPlay = { title, url, headers -> navigateTo(Screen.Player(title, url, headers)) },
                     )
-                    Screen.Notifications -> PlaceholderScreen(screen = target)
+                    Screen.Notifications -> NotificationsScreen(
+                        store = NoticeStoreInstance,
+                        notifier = releaseNotifier,
+                        onOpenAnime = { navigateTo(Screen.Detail(it)) },
+                    )
                     Screen.Profile -> MyAnimeListScreen()
                     Screen.Downloads -> DownloadsScreen(
                         repository = repository,

@@ -317,9 +317,13 @@ class AniListClient(
 
 
 
-    suspend fun schedule(days: Int = 7, showAdult: Boolean = false): List<AiringEntry> {
-        val from = nowSeconds()
-        val to = from + days * 86_400L
+    /**
+     * The airing schedule between now and [days] ahead. [since] moves the lower bound back, so a
+     * caller can ask what has already aired in the last hours.
+     */
+    suspend fun schedule(days: Int = 7, showAdult: Boolean = false, since: Long? = null): List<AiringEntry> {
+        val from = since ?: nowSeconds()
+        val to = nowSeconds() + days * 86_400L
         val query = """
             query (${'$'}page: Int, ${'$'}from: Int, ${'$'}to: Int) {
               Page(page: ${'$'}page, perPage: 50) {

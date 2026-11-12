@@ -69,6 +69,10 @@ class AniListRepository(
 
     suspend fun schedule(): List<me.enivzoy.anilife.core.model.AiringEntry> = client.schedule()
 
+    /** What has aired in the last [hours], used to announce new episodes of library titles. */
+    suspend fun recentlyAired(hours: Int): List<me.enivzoy.anilife.core.model.AiringEntry> =
+        client.schedule(days = 1, since = System.currentTimeMillis() / 1000 - hours * 3600L)
+
     suspend fun random(): AnimeCard? = client.random()
 
     suspend fun detectLocalMedia(root: java.nio.file.Path, audio: String, onProgress: (String, String) -> Unit = { _, _ -> }): AutoDetectResult {

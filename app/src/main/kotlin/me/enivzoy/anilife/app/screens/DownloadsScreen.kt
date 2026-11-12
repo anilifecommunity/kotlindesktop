@@ -87,6 +87,7 @@ import me.enivzoy.anilife.app.data.DetectedFolder
 import me.enivzoy.anilife.app.data.LocalEpisode
 import me.enivzoy.anilife.app.data.PortableImportResult
 import me.enivzoy.anilife.app.data.ContinueStoreInstance
+import me.enivzoy.anilife.app.data.NoticeStoreInstance
 import me.enivzoy.anilife.app.ui.AniLifeColors
 import me.enivzoy.anilife.app.ui.EmptyPanel
 import me.enivzoy.anilife.app.ui.ErrorPanel
@@ -377,6 +378,13 @@ fun DownloadsScreen(
                         )
                         val episodeTitle = downloaded.episodeTitle?.let { ": $it" }.orEmpty()
                         message = "${downloaded.anime.title} · Episode ${downloaded.episode.episodeLabel()}$episodeTitle is ready offline."
+                        NoticeStoreInstance.add(
+                            kind = "download",
+                            title = downloaded.anime.title,
+                            body = "Episode ${downloaded.episode.episodeLabel()} is ready offline",
+                            animeId = downloaded.anime.id,
+                            image = downloaded.anime.cover,
+                        )
                         showDownloadDialog = false
                     } catch (e: CancellationException) {
                         throw e
