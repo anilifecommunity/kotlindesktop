@@ -119,9 +119,21 @@ fun PlayerScreen(
         skipTimes = runCatching { aniskip.skipTimes(malId, ep, length) }.getOrNull()
     }
 
-    val engine = remember(url, headers, selectedSource?.subtitles) {
+    val resumePosition = remember(detail?.id, episode, settings.resumePlayback) {
+        val animeId = detail?.id ?: return@remember 0.0
+        val ep = episode ?: return@remember 0.0
+        if (!settings.resumePlayback) return@remember 0.0
+        ContinueStoreInstance.positionFor(animeId, ep) ?: 0.0
+    }
+    val engine = remember(url, headers, selectedSource?.subtitles, resumePosition) {
         url?.takeIf(String::isNotBlank)?.let { stream ->
-            MpvPlaybackEngine(stream, headers, fallbackDurationSeconds, selectedSource?.subtitles.orEmpty())
+            MpvPlaybackEngine(
+                url = stream,
+                headers = headers,
+                fallbackDurationSeconds = fallbackDurationSeconds,
+                serverSubtitles = selectedSource?.subtitles.orEmpty(),
+                startPositionSeconds = resumePosition,
+            )
         }
     }
     LaunchedEffect(engine) {

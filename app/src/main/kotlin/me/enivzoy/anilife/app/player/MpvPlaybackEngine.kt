@@ -44,6 +44,7 @@ class MpvPlaybackEngine(
     private val headers: Map<String, String> = emptyMap(),
     fallbackDurationSeconds: Double = 0.0,
     private val serverSubtitles: List<AnimeSubtitleSource> = emptyList(),
+    private val startPositionSeconds: Double = 0.0,
     private val renderWidth: Int = 1280,
     private val renderHeight: Int = 720,
     private val renderFormat: String = "bgra",
@@ -131,6 +132,13 @@ class MpvPlaybackEngine(
                     runCatching { player?.addSubtitle(subtitle.url, subtitle.label, subtitle.language) }
                 }
                 refreshSubtitleTracks()
+                // Resume where the episode was left off, a few seconds back so the viewer hears the
+                // line before the one they missed.
+                if (startPositionSeconds > 0.0) {
+                    val target = startPositionSeconds
+                    positionSeconds = target
+                    runCatching { player?.seekTo(target) }
+                }
             }
             is Event.EndFile -> {
                 if (event.reason == EndReason.EOF) {

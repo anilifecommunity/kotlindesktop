@@ -52,6 +52,21 @@ class ContinueStore(private val file: File = continueFile()) {
         }
     }
 
+    /**
+     * Where an episode was left off, or null when it was never started or is already finished.
+     * The saved position is a few seconds back, so the line before the one missed is heard again.
+     */
+    fun positionFor(animeId: Long, episode: Double): Double? = synchronized(lock) {
+        val entry = mutableEntries.value.firstOrNull { it.anime.id == animeId } ?: return null
+        val progress = entry.progress
+        if (progress.episode != episode) return null
+        if (progress.duration <= 0.0) return null
+        // Past the point where an episode counts as watched.
+        if (progress.position >= progress.duration * 0.9) return null
+        if (progress.position < 10.0) return null
+        (progress.position - 3.0).coerceAtLeast(0.0)
+    }
+
     fun clear() = synchronized(lock) {
         writeEntries(emptyList())
         mutableEntries.value = emptyList()
