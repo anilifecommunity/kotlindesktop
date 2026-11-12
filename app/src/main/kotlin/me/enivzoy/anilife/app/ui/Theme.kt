@@ -9,7 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -105,7 +105,9 @@ fun AniLifeTheme(settings: AppSettings, content: @Composable () -> Unit) {
     SideEffect { AniLifeColors.update(settings) }
     val font = androidx.compose.runtime.remember(settings.appFont, settings.appFontFile) {
         settings.appFontFile.takeIf(String::isNotBlank)?.let { path ->
-            runCatching { FontFamily(Font(File(path))) }.getOrNull()
+            File(path).takeIf(File::isFile)?.let { file ->
+                runCatching { FontFamily(Font(file)) }.getOrNull()
+            }
         } ?: when (settings.appFont) {
             "Serif" -> FontFamily.Serif
             "Monospaced" -> FontFamily.Monospace
