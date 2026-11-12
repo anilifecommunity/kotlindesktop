@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -320,9 +323,62 @@ fun PlayerScreen(
         openPanel = null
     }
 
+    // Keyboard shortcuts, the same set the reference player answers to.
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(focusRequester) {
+        runCatching { focusRequester.requestFocus() }
+    }
+    val shortcutState = rememberUpdatedState(
+        PlayerShortcuts(
+            onTogglePause = {
+                if (engine != null) engine.togglePause()
+                else {
+                    if (simulatedPosition >= fallbackDurationSeconds) simulatedPosition = 0.0
+                    simulatedPlaying = !simulatedPlaying
+                }
+            },
+            onSeekRelative = { delta ->
+                if (engine != null) engine.seekRelative(delta)
+                else simulatedPosition = (simulatedPosition + delta).coerceIn(0.0, fallbackDurationSeconds)
+            },
+            onVolumeChange = { delta ->
+                onSettingsChange(settings.copy(volume = (settings.volume + delta).coerceIn(0, 100)))
+            },
+            onToggleMute = {
+                if (engine != null) engine.setMute(!engine.isMuted)
+            },
+            onToggleFullscreen = onToggleFullscreen,
+            onSpeedChange = { delta ->
+                playbackSpeed = (playbackSpeed + delta).coerceIn(0.25f, 4f)
+            },
+            onSubtitleDelay = { delta ->
+                if (engine != null) engine.shiftSubtitles(engine.subtitleDelaySeconds + delta)
+            },
+            onSkip = {
+                val active = activeSkip ?: return@PlayerShortcuts
+                if (activeSkipKey != null) handledSkipKeys = handledSkipKeys + activeSkipKey
+                val target = skipTarget(active, durationSeconds)
+                if (engine != null) engine.seekTo(target)
+                else simulatedPosition = target.coerceIn(0.0, fallbackDurationSeconds)
+            },
+            onNext = { next?.let(onEpisodeChange) },
+            onPrevious = { previous?.let(onEpisodeChange) },
+        )
+    )
+
     Box(
         Modifier.fillMaxSize().background(Color.Black)
             .pointerHoverIcon(if (controlsVisible) PointerIcon.Default else HiddenPlayerCursor)
+            .onPreviewKeyEvent { event ->
+                if (handlePlayerShortcut(event, shortcutState.value)) {
+                    controlsVisible = true
+                    pointerActivity += 1
+                    true
+                } else {
+                    false
+                }
+            }
+            .focusRequester(focusRequester)
             .pointerInput(title, episode) {
             awaitPointerEventScope {
                 while (true) {

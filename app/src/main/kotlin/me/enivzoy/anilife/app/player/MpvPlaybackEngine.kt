@@ -66,6 +66,10 @@ class MpvPlaybackEngine(
         private set
     var subtitleTracks by mutableStateOf<List<PlayerSubtitleTrack>>(emptyList())
         private set
+    var isMuted by mutableStateOf(false)
+        private set
+    var subtitleDelaySeconds by mutableStateOf(0.0)
+        private set
 
     private val closed = AtomicBoolean(false)
     @Volatile private var player: Mpv? = null
@@ -198,6 +202,17 @@ class MpvPlaybackEngine(
 
     fun setSpeed(speed: Double) {
         player?.setSpeed(speed)
+    }
+
+    fun setMute(muted: Boolean) {
+        isMuted = muted
+        player?.setPropertyValue("mute", if (muted) "yes" else "no")
+    }
+
+    /** Shifts the subtitles earlier (negative) or later (positive), in seconds. */
+    fun shiftSubtitles(seconds: Double) {
+        subtitleDelaySeconds = seconds
+        player?.setPropertyValue("sub-delay", seconds.toString())
     }
 
     fun setContentScale(scale: String) {
