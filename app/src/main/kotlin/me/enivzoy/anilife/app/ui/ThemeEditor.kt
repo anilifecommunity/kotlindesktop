@@ -189,6 +189,24 @@ fun ThemeEditor(
                 }
             }
         }
+
+        Text("Presets", color = AniLifeColors.Foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(
+            "One-click colour schemes. Applying a preset replaces the colours it names and keeps the rest.",
+            color = AniLifeColors.MutedForeground,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeCss.colorPresets.forEach { preset ->
+                    OutlinedButton(onClick = {
+                        draft = ThemeCss.presetStylesheet(preset)
+                        dirty = true
+                    }) { Text(preset.name) }
+                }
+            }
+        }
     }
 }
 

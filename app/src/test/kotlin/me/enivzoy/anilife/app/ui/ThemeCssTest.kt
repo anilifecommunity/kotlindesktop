@@ -126,4 +126,26 @@ class ThemeCssTest {
         assertEquals(0xFF101010L, ThemeCss.parse(updated).colors["background"])
         assertEquals(0xFF87D66AL, ThemeCss.parse(updated).colors["primary"])
     }
+
+    @Test
+    fun colorPresetsWriteValidStylesheets() {
+        ThemeCss.colorPresets.forEach { preset ->
+            val parsed = ThemeCss.parse(ThemeCss.presetStylesheet(preset))
+
+            assertTrue(parsed.issues.isEmpty(), "${preset.name}: ${parsed.issues}")
+            assertEquals(preset.colors.size, parsed.colors.size)
+            preset.colors.forEach { (name, value) ->
+                assertEquals(value, parsed.colors[name], "${preset.name} token $name")
+            }
+        }
+    }
+
+    @Test
+    fun everyPresetTargetsKnownTokens() {
+        ThemeCss.colorPresets.forEach { preset ->
+            preset.colors.forEach { (name, _) ->
+                assertTrue(ThemeCss.tokens.any { it.name == name }, "${preset.name} uses unknown token $name")
+            }
+        }
+    }
 }

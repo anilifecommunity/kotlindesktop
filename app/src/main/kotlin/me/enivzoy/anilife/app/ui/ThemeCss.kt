@@ -64,6 +64,57 @@ object ThemeCss {
         Token("download-accent-foreground", "Downloads accent text", "#291522"),
     )
 
+    data class ColorPreset(val name: String, val description: String, val colors: Map<String, Long>)
+
+    /** One-click colour schemes. Each names the tokens it overrides; the rest keep the defaults. */
+    val colorPresets: List<ColorPreset> = listOf(
+        ColorPreset(
+            name = "Anime",
+            description = "The green-black default look.",
+            colors = mapOf(
+                "background" to 0xFF0A0F0AL, "foreground" to 0xFFF8F8F8L, "card" to 0xFF111A11L,
+                "muted" to 0xFF1A261AL, "muted-foreground" to 0xFFA1A1A1L, "border" to 0x1AFFFFFFL,
+                "primary" to 0xFF87D66AL, "primary-foreground" to 0xFF0A0F0AL,
+            ),
+        ),
+        ColorPreset(
+            name = "Midnight",
+            description = "Deep blue night mode.",
+            colors = mapOf(
+                "background" to 0xFF05070FL, "foreground" to 0xFFE8ECFFL, "card" to 0xFF0B1020L,
+                "muted" to 0xFF141B30L, "muted-foreground" to 0xFF8B93B8L, "border" to 0x1A6EA8FFL,
+                "primary" to 0xFF6EA8FFL, "primary-foreground" to 0xFF05070FL,
+            ),
+        ),
+        ColorPreset(
+            name = "Forest",
+            description = "Muted green for late-night watching.",
+            colors = mapOf(
+                "background" to 0xFF06120BL, "foreground" to 0xFFE6F2E9L, "card" to 0xFF0C1A12L,
+                "muted" to 0xFF14281CL, "muted-foreground" to 0xFF8FB89EL, "border" to 0x1A87D66AL,
+                "primary" to 0xFF57C785L, "primary-foreground" to 0xFF06120BL,
+            ),
+        ),
+        ColorPreset(
+            name = "Sunset",
+            description = "Warm amber for evening episodes.",
+            colors = mapOf(
+                "background" to 0xFF140B08L, "foreground" to 0xFFFDEEE6L, "card" to 0xFF1E120CL,
+                "muted" to 0xFF2A1A14L, "muted-foreground" to 0xFFD9B8A6L, "border" to 0x1AFF9E7AL,
+                "primary" to 0xFFFF9C5CL, "primary-foreground" to 0xFF1A0E05L,
+            ),
+        ),
+        ColorPreset(
+            name = "Mono",
+            description = "Greyscale, for the purists.",
+            colors = mapOf(
+                "background" to 0xFF0A0A0AL, "foreground" to 0xFFF2F2F2L, "card" to 0xFF151515L,
+                "muted" to 0xFF222222L, "muted-foreground" to 0xFFA3A3A3L, "border" to 0x1AFFFFFFL,
+                "primary" to 0xFFE5E5E5L, "primary-foreground" to 0xFF111111L,
+            ),
+        ),
+    )
+
     fun defaultCss(): String = buildString {
         appendLine(":root {")
         tokens.forEach { appendLine("  --${it.name}: ${it.default};") }
@@ -113,6 +164,15 @@ object ThemeCss {
         val blue = (color.blue * 255f).toInt().coerceIn(0, 255)
         val argb = (alpha.toLong() shl 24) or (red.toLong() shl 16) or (green.toLong() shl 8) or blue.toLong()
         return toHex(argb)
+    }
+
+    /** The stylesheet a preset writes, as plain CSS the editor and the parser both understand. */
+    fun presetStylesheet(preset: ColorPreset): String = buildString {
+        append(":root {\n")
+        preset.colors.forEach { (name, value) ->
+            append("  --").append(name).append(": ").append(toHex(value)).append(";\n")
+        }
+        append("}")
     }
 
     fun color(argb: Long): Color = Color(argb)

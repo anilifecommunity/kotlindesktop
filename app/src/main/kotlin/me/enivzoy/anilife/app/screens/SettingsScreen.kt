@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -570,6 +571,28 @@ private fun AppearanceSettings(settings: AppSettings, onSettingsChange: ((AppSet
             selected = settings.appFont,
             onSelect = { value -> onSettingsChange { it.copy(appFont = value) } },
         )
+    }
+    SettingsRow(
+        "Custom font file",
+        "Point the app typeface at a .ttf or .otf file on this computer.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    val chooser = JFileChooser()
+                    chooser.dialogTitle = "Choose the app font"
+                    chooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("Font files (*.ttf, *.otf)", "ttf", "otf")
+                    chooser.fileSelectionMode = JFileChooser.FILES_ONLY
+                    chooser.isAcceptAllFileFilterUsed = false
+                    if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                        onSettingsChange { it.copy(appFontFile = chooser.selectedFile.absolutePath) }
+                    }
+                },
+            ) { Text("Choose font file") }
+            if (settings.appFontFile.isNotBlank()) {
+                OutlinedButton(onClick = { onSettingsChange { it.copy(appFontFile = "") } }) { Text("Clear") }
+            }
+        }
     }
     SettingsSection("Theme colors") {
         ThemeEditor(
