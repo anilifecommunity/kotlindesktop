@@ -44,6 +44,15 @@ jobs:
           name: AniLife-Windows-MSI
           path: app/build/compose/binaries/main/**/*.msi
           if-no-files-found: warn
+      - name: Report biggest files in app image
+        shell: pwsh
+        run: |
+          $dir = "app/build/compose/binaries/main/app"
+          if (-not (Test-Path $dir)) { $dir = "app/build/compose/binaries/main" }
+          Get-ChildItem $dir -Recurse -File |
+            Sort-Object Length -Descending | Select-Object -First 25 |
+            ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring($dir.Length) }
+          "runtime: {0:N0} MB" -f ((Get-ChildItem "$dir/*/runtime" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum/1MB)
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
