@@ -409,6 +409,7 @@ object DirectMediaDownloader {
         downloadRoot: Path = defaultDownloadDirectory(),
         anime: AnimeCard? = null,
         episodeTitle: String? = null,
+        onProgress: ((Long, Long?) -> Unit)? = null,
     ): LocalEpisode =
         kotlinx.coroutines.withContext(Dispatchers.IO) {
             require(animeTitle.isNotBlank()) { "Enter the anime title." }
@@ -439,9 +440,23 @@ object DirectMediaDownloader {
                     .header("Accept", "video/*,application/octet-stream;q=0.9,*/*;q=0.1")
                     .GET()
                     .build()
-                val response = client.send(request, HttpResponse.BodyHandlers.ofFile(temporary.toPath()))
+                val response = client.send(request, HttpResponse.BodyHandlers.ofInputStream())
                 require(response.statusCode() in 200..299) { "The video server returned HTTP ${response.statusCode()}." }
-                require(Files.size(temporary.toPath()) > 0L) { "The video server returned an empty file." }
+                val contentLength = response.headers().firstValue("Content-Length")
+                val totalBytes = if (contentLength.isPresent) contentLength.get().toLongOrNull() else null
+                val input = response.body()
+                val buffer = ByteArray(64 * 1024)
+                var downloaded = 0L
+                temporary.outputStream().use { output ->
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        downloaded += read.toLong()
+                        onProgress?.invoke(downloaded, totalBytes)
+                    }
+                }
+                require(downloaded > 0L) { "The video server returned an empty file." }
                 try {
                     Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
                 } catch (_: AtomicMoveNotSupportedException) {

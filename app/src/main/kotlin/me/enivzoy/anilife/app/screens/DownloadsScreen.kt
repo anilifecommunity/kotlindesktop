@@ -87,6 +87,9 @@ import me.enivzoy.anilife.app.data.DetectedFolder
 import me.enivzoy.anilife.app.data.LocalEpisode
 import me.enivzoy.anilife.app.data.PortableImportResult
 import me.enivzoy.anilife.app.data.ContinueStoreInstance
+import me.enivzoy.anilife.app.data.DownloadJob
+import me.enivzoy.anilife.app.data.DownloadQueueManager
+import me.enivzoy.anilife.app.data.DownloadStatus
 import me.enivzoy.anilife.app.data.NoticeStoreInstance
 import me.enivzoy.anilife.app.ui.AniLifeColors
 import me.enivzoy.anilife.app.ui.EmptyPanel
@@ -122,6 +125,7 @@ fun DownloadsScreen(
     onSettingsChange: ((AppSettings) -> AppSettings) -> Unit,
     onPlay: (String, String) -> Unit,
     onOpen: (Long) -> Unit = {},
+    queueManager: DownloadQueueManager,
 ) {
     val episodes by repository.localEpisodes.collectAsState()
     val continueEntries by ContinueStoreInstance.entries.collectAsState()
@@ -138,6 +142,7 @@ fun DownloadsScreen(
     var showDownloadDialog by remember { mutableStateOf(false) }
     var downloadError by remember { mutableStateOf<String?>(null) }
     val candidateIndex = remember { mutableStateMapOf<String, Int>() }
+    val downloadJobs by queueManager.jobs.collectAsState()
 
     fun selectMediaFolder(): Path? {
         val chooser = JFileChooser(mediaRoot?.let(::File))
@@ -303,6 +308,11 @@ fun DownloadsScreen(
                 actionsEnabled = !scanning && !importing,
                 audioTrack = settings.audio,
                 onAudioChange = { audio -> onSettingsChange { it.copy(audio = audio) } },
+                downloadJobs = downloadJobs,
+                onCancelDownload = queueManager::cancel,
+                onRetryDownload = queueManager::retry,
+                onRemoveDownload = queueManager::remove,
+                onClearFinishedDownloads = queueManager::clearFinished,
             )
         }
     }
@@ -364,36 +374,16 @@ fun DownloadsScreen(
             error = downloadError,
             onDismiss = { if (!importing) showDownloadDialog = false },
             onDownload = { title, episode, url ->
-                importing = true
                 downloadError = null
                 error = null
-                scope.launch {
-                    try {
-                        val downloaded = repository.downloadDirect(
-                            url,
-                            title,
-                            episode,
-                            settings.audio,
-                            settings.downloadDirectory?.let(Path::of),
-                        )
-                        val episodeTitle = downloaded.episodeTitle?.let { ": $it" }.orEmpty()
-                        message = "${downloaded.anime.title} · Episode ${downloaded.episode.episodeLabel()}$episodeTitle is ready offline."
-                        NoticeStoreInstance.add(
-                            kind = "download",
-                            title = downloaded.anime.title,
-                            body = "Episode ${downloaded.episode.episodeLabel()} is ready offline",
-                            animeId = downloaded.anime.id,
-                            image = downloaded.anime.cover,
-                        )
-                        showDownloadDialog = false
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (t: Throwable) {
-                        downloadError = t.message?.takeIf(String::isNotBlank) ?: "The video download failed."
-                    } finally {
-                        importing = false
-                    }
-                }
+                queueManager.enqueue(
+                    title = title,
+                    episode = episode,
+                    url = url,
+                    audio = settings.audio,
+                    downloadRoot = settings.downloadDirectory?.let(Path::of),
+                )
+                showDownloadDialog = false
             },
         )
     }
@@ -560,6 +550,11 @@ private fun EpisodeList(
     actionsEnabled: Boolean,
     audioTrack: String,
     onAudioChange: (String) -> Unit,
+    downloadJobs: List<DownloadJob>,
+    onCancelDownload: (String) -> Unit,
+    onRetryDownload: (String) -> Unit,
+    onRemoveDownload: (String) -> Unit,
+    onClearFinishedDownloads: () -> Unit,
 ) {
     val groups = remember(episodes) {
         episodes.groupBy { it.anime.id }
@@ -840,8 +835,26 @@ private fun EpisodeList(
         }
 
         if (tab == "queue") {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No active downloads.", color = AniLifeColors.MutedForeground, fontSize = 13.sp)
+            if (downloadJobs.isEmpty()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("No downloads queued.", color = AniLifeColors.MutedForeground, fontSize = 13.sp, lineHeight = 18.sp)
+                }
+            } else {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(downloadJobs, key = { it.id }) { job ->
+                        DownloadJobRow(
+                            job = job,
+                            onCancel = { onCancelDownload(job.id) },
+                            onRetry = { onRetryDownload(job.id) },
+                            onRemove = { onRemoveDownload(job.id) },
+                        )
+                    }
+                    item {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = onClearFinishedDownloads) { Text("Clear finished", color = AniLifeColors.MutedForeground, fontSize = 12.sp) }
+                        }
+                    }
+                }
             }
         } else if (filteredGroups.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -1043,6 +1056,79 @@ private fun buildImportMessage(result: PortableImportResult): String = buildStri
 }
 
 private fun Double.episodeLabel(): String = if (this % 1.0 == 0.0) toInt().toString() else toString()
+
+@Composable
+private fun DownloadJobRow(
+    job: DownloadJob,
+    onCancel: () -> Unit,
+    onRetry: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val fraction = if (job.total != null && job.total > 0L) {
+        (job.downloaded / job.total).toFloat().coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DownloadSurface)
+            .border(1.dp, DownloadOutline, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(job.title, color = DownloadText, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "Episode ${job.episode.episodeLabel()} · ${job.status.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    color = DownloadMuted,
+                    fontSize = 12.sp,
+                )
+            }
+            when (job.status) {
+                DownloadStatus.Running, DownloadStatus.Queued -> {
+                    OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(8.dp)) { Text("Cancel", fontSize = 12.sp) }
+                }
+                DownloadStatus.Failed, DownloadStatus.Cancelled -> {
+                    OutlinedButton(onClick = onRetry, shape = RoundedCornerShape(8.dp)) { Text("Retry", fontSize = 12.sp) }
+                }
+                DownloadStatus.Done -> {}
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove", tint = DownloadMuted)
+            }
+        }
+        if (job.status == DownloadStatus.Running || job.status == DownloadStatus.Queued) {
+            Text(
+                "${formatBytes(job.downloaded)} of ${job.total?.let { formatBytes(it) } ?: "?"}",
+                color = DownloadMuted,
+                fontSize = 11.sp,
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(DownloadSurfaceRaised),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(fraction)
+                        .height(6.dp)
+                        .background(DownloadAccent),
+                )
+            }
+        }
+        if (job.status == DownloadStatus.Failed && job.error != null) {
+            Text(job.error, color = AniLifeColors.Destructive, fontSize = 11.sp, lineHeight = 16.sp)
+        }
+        if (job.status == DownloadStatus.Done && job.localEpisode != null) {
+            Text("Saved · ${job.localEpisode.path.fileName}", color = DownloadMuted, fontSize = 11.sp)
+        }
+    }
+}
 
 private fun formatBytes(bytes: Long): String = when {
     bytes >= 1024L * 1024 * 1024 -> "%.1f GB".format(bytes / (1024.0 * 1024 * 1024))

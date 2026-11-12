@@ -47,6 +47,7 @@ import me.enivzoy.anilife.app.data.AnimeVideoProviders
 import me.enivzoy.anilife.app.data.AppSettingsStore
 import me.enivzoy.anilife.app.data.DEFAULT_DISCORD_APPLICATION_ID
 import me.enivzoy.anilife.app.data.DiscordPresenceManager
+import me.enivzoy.anilife.app.data.DownloadQueueManager
 import me.enivzoy.anilife.app.data.DiscordPresenceTarget
 import me.enivzoy.anilife.app.data.ProviderCatalog
 import me.enivzoy.anilife.app.screens.BrowseScreen
@@ -69,6 +70,9 @@ import me.enivzoy.anilife.app.ui.AniLifeColors
 import me.enivzoy.anilife.app.ui.AppSidebar
 import me.enivzoy.anilife.mpv.Mpv
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
  
@@ -87,6 +91,8 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
     val mediaProviders = remember { ProviderCatalog() }
     val discordPresence = remember { DiscordPresenceManager() }
     val releaseNotifier = remember(repository) { ReleaseNotifier(repository) }
+    val downloadScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+    val downloadQueue = remember(repository) { DownloadQueueManager(repository, downloadScope, 3) }
     val settings by settingsStore.settings.collectAsState()
     val discordState by discordPresence.state.collectAsState()
     val backStack = remember { mutableStateListOf<Screen>() }
@@ -290,6 +296,7 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
                         onSettingsChange = ::updateSettings,
                         onPlay = { title, url -> navigateTo(Screen.Player(title, url)) },
                         onOpen = { id -> navigateTo(Screen.Detail(id)) },
+                        queueManager = downloadQueue,
                     )
                     is Screen.Detail -> DetailScreen(
                         repository = repository,
