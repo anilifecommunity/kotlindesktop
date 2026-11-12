@@ -66,6 +66,7 @@ class AppSettingsTest {
                     contentScale = "invalid",
                     subtitleScale = 4f,
                     downloadDirectory = root.toString(),
+                    themeCss = ":root {\n  --background: #101010;\n}",
                 )
             }
 
@@ -82,6 +83,7 @@ class AppSettingsTest {
             assertEquals("fit", persisted.contentScale)
             assertEquals(2f, persisted.subtitleScale)
             assertEquals(root.toAbsolutePath().normalize().toString(), persisted.downloadDirectory)
+            assertEquals(":root {\n  --background: #101010;\n}", persisted.themeCss)
         } finally {
             root.toFile().deleteRecursively()
         }
