@@ -165,7 +165,7 @@ private enum class SettingsPage(
     Player("Player", "Playback, skipping, and how the player looks", Icons.Rounded.PlayCircle, "audio dubbed sub resume autoplay skip volume picture"),
     Subtitles("Subtitles", "Captions, language, and text size", Icons.Rounded.Subtitles, "captions subtitles language text size"),
     Downloads("Downloads", "Where episodes are saved", Icons.Rounded.Download, "folder directory storage path"),
-    Servers("Servers", "Your Jellyfin and Emby connections", Icons.Rounded.Dns, "jellyfin emby providers streaming"),
+    Servers("Servers", "The video providers AniLife plays through", Icons.Rounded.Dns, "providers streaming wasm servers extensions"),
     Accounts("Accounts & sync", "Discord presence and list sync", Icons.Rounded.Sync, "discord rich presence myanimelist mal account"),
     Notifications("Notifications", "Release and episode alerts", Icons.Rounded.Notifications, "alerts reminders episodes releases"),
     Content("Content", "Titles and what the app opens with", Icons.Rounded.VideoLibrary, "title language romaji english native"),
@@ -195,7 +195,7 @@ private val settingSearchEntries = listOf(
     SettingSearchEntry("Preferred caption language", SettingsPage.Subtitles, "captions subtitles language"),
     SettingSearchEntry("Caption size", SettingsPage.Subtitles, "captions subtitles text scale size"),
     SettingSearchEntry("Download folder", SettingsPage.Downloads, "directory location path storage"),
-    SettingSearchEntry("Media servers", SettingsPage.Servers, "jellyfin emby providers servers streaming"),
+    SettingSearchEntry("Video providers", SettingsPage.Servers, "providers servers streaming wasm extensions"),
     SettingSearchEntry("Discord Rich Presence", SettingsPage.Accounts, "discord activity status watching idle connect"),
     SettingSearchEntry("Discord Application ID", SettingsPage.Accounts, "discord developer application id"),
     SettingSearchEntry("Title display language", SettingsPage.Content, "anime name title romaji english native"),
@@ -401,6 +401,12 @@ private fun PlayerSettings(settings: AppSettings, onSettingsChange: ((AppSetting
         ) {
             SettingsSwitch(settings.autoSkipOutro) { enabled -> onSettingsChange { it.copy(autoSkipOutro = enabled) } }
         }
+        SettingsRow(
+            "Anime details when paused",
+            "Show the series, the episode and its synopsis over a paused picture.",
+        ) {
+            SettingsSwitch(settings.pauseDetails) { enabled -> onSettingsChange { it.copy(pauseDetails = enabled) } }
+        }
     }
     SettingsSection("Picture") {
         SettingsRow(
@@ -495,14 +501,14 @@ private fun DownloadSettings(settings: AppSettings, onSettingsChange: ((AppSetti
             }
         }
     }
-    SettingsNote("Direct video URLs and authorized Jellyfin or Emby server items can be downloaded.")
+    SettingsNote("Direct video URLs can be downloaded.")
 }
 
 @Composable
 private fun ServerSettings() {
     SettingsNote(
-        "Jellyfin and Emby servers are added from the Media providers screen in the sidebar. " +
-            "AniLife keeps those addresses and credentials on this computer.",
+        "The video providers AniLife plays through are listed on the Providers screen in the sidebar. " +
+            "Extra provider modules can be added there.",
     )
 }
 
@@ -526,21 +532,6 @@ private fun AccountSettings(
             state = discordState,
             enabled = settings.discordPresenceEnabled,
             onConnect = onDiscordConnect,
-        )
-    }
-    SettingsRow(
-        "Discord Application ID",
-        "The bundled AniLife application ID is ready to use. Only change this for your own Discord Developer Portal application; no client secret is needed.",
-    ) {
-        OutlinedTextField(
-            value = settings.discordApplicationId,
-            onValueChange = { value ->
-                onSettingsChange { it.copy(discordApplicationId = value.filter(Char::isDigit).take(20)) }
-            },
-            modifier = Modifier.width(220.dp),
-            singleLine = true,
-            textStyle = TextStyle(fontSize = 13.sp),
-            label = { Text("Application ID", fontSize = 11.sp) },
         )
     }
     SettingsNote("MyAnimeList sync is available from Profile after signing in.")
@@ -634,7 +625,7 @@ private fun AboutSettings(mpvLibrary: String?) {
             "Player",
             if (mpvLibrary != null) "libmpv · $mpvLibrary" else "libmpv not found (set -DAniLife.mpv.library=<path>)",
         )
-        AboutLine("Providers", "Connect your own Jellyfin or Emby server from Media providers.")
+        AboutLine("Providers", "Sandboxed WebAssembly modules, listed on the Providers screen.")
         AboutLine("Interface", "Compose Desktop 1.7.3 · Kotlin 2.2.20")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip(text = "Made with love", container = AniLifeColors.Secondary, content = AniLifeColors.Foreground)
