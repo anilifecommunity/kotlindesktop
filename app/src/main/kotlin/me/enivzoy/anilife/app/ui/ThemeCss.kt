@@ -62,18 +62,6 @@ object ThemeCss {
         Token("download-muted", "Downloads muted text", "#A2A5AC"),
         Token("download-accent", "Downloads accent", "#FF8FC9"),
         Token("download-accent-foreground", "Downloads accent text", "#291522"),
-        Token("settings-bg", "Settings background", "#000000"),
-        Token("settings-panel", "Settings panel", "#090909"),
-        Token("settings-border", "Settings panel border", "#1A1A1A"),
-        Token("settings-divider", "Settings divider", "#212222"),
-        Token("settings-selected", "Settings selection", "#222222"),
-        Token("settings-selected-foreground", "Settings selection text", "#FAFAFA"),
-        Token("settings-control", "Settings controls", "#0B0B0B"),
-        Token("settings-control-border", "Settings control border", "#2A2A2A"),
-        Token("settings-control-active", "Active control", "#E5E5E5"),
-        Token("settings-control-active-foreground", "Active control text", "#1B1B1B"),
-        Token("settings-switch-track", "Switch track when off", "#272727"),
-        Token("settings-switch-knob", "Switch knob when off", "#E5E5E5"),
     )
 
     fun defaultCss(): String = buildString {

@@ -90,18 +90,19 @@ object AniLifeColors {
     val DownloadMuted get() = token("download-muted", 0xFFA2A5AC)
     val DownloadAccent get() = token("download-accent", 0xFFFF8FC9)
     val DownloadAccentForeground get() = token("download-accent-foreground", 0xFF291522)
-    val SettingsBackground get() = token("settings-bg", 0xFF000000)
-    val SettingsPanel get() = token("settings-panel", 0xFF090909)
-    val SettingsBorder get() = token("settings-border", 0xFF1A1A1A)
-    val SettingsDivider get() = token("settings-divider", 0xFF212222)
-    val SettingsSelected get() = token("settings-selected", 0xFF222222)
-    val SettingsSelectedForeground get() = token("settings-selected-foreground", 0xFFFAFAFA)
-    val SettingsControl get() = token("settings-control", 0xFF0B0B0B)
-    val SettingsControlBorder get() = token("settings-control-border", 0xFF2A2A2A)
-    val SettingsControlActive get() = token("settings-control-active", 0xFFE5E5E5)
-    val SettingsControlActiveForeground get() = token("settings-control-active-foreground", 0xFF1B1B1B)
-    val SettingsSwitchTrack get() = token("settings-switch-track", 0xFF272727)
-    val SettingsSwitchKnob get() = token("settings-switch-knob", 0xFFE5E5E5)
+    // The settings window shares the app's palette, so it recolours with everything else.
+    val SettingsBackground get() = Background
+    val SettingsPanel get() = Card
+    val SettingsBorder get() = Border
+    val SettingsDivider get() = Border
+    val SettingsSelected get() = Muted
+    val SettingsSelectedForeground get() = Foreground
+    val SettingsControl get() = Input
+    val SettingsControlBorder get() = Border
+    val SettingsControlActive get() = Primary
+    val SettingsControlActiveForeground get() = PrimaryForeground
+    val SettingsSwitchTrack get() = Muted
+    val SettingsSwitchKnob get() = Foreground
 }
 
 private val DarkScheme = darkColorScheme(
@@ -135,10 +136,7 @@ private val AppTypography = Typography(
     titleLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
     titleMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp),
     titleSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    // No line height on the body style: a `Text` that sets only a font size then keeps the
-    // font's own metrics, so a small label sits centred in its pill instead of dropping to the
-    // bottom of a tall line box.
-    bodyLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 16.sp),
+    bodyLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, lineHeight = 21.sp),
     bodySmall = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 12.sp, lineHeight = 17.sp),
     labelLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
