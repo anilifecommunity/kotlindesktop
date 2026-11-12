@@ -7,7 +7,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -34,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -262,6 +266,36 @@ fun PlayerScreen(
         if (engine?.hasEnded == true && settings.autoplayNextEpisode) next?.let(onEpisodeChange)
     }
 
+    // The next episode is offered in the file's last half-minute, with a countdown that plays it
+    // unless the viewer stays. Counted in played time, so a pause holds the count.
+    var upNextDismissed by remember(title, episode, url) { mutableStateOf(false) }
+    val upNextDue = remember(positionSeconds, durationSeconds, skipTimes, next, settings.autoplayNextEpisode, upNextDismissed) {
+        next != null && settings.autoplayNextEpisode && !upNextDismissed &&
+            nextEpisodeDue(positionSeconds, durationSeconds, skipTimes?.outro)
+    }
+    var upNextCountdown by remember(title, episode, url) { mutableStateOf<Int?>(null) }
+    val playingNow = rememberUpdatedState(isPlaying)
+    val nextEpisode = rememberUpdatedState(next)
+    LaunchedEffect(upNextDue) {
+        if (!upNextDue) {
+            upNextCountdown = null
+            return@LaunchedEffect
+        }
+        var remaining = NEXT_EPISODE_COUNTDOWN_SECONDS
+        while (remaining > 0) {
+            upNextCountdown = remaining
+            // A pause holds the count, so the countdown counts played time.
+            if (!playingNow.value) {
+                kotlinx.coroutines.delay(250)
+                continue
+            }
+            kotlinx.coroutines.delay(1000)
+            remaining -= 1
+        }
+        upNextCountdown = null
+        nextEpisode.value?.let(onEpisodeChange)
+    }
+
     LaunchedEffect(engine, engine?.hasEnded, animeCard?.malId, episode) {
         if (engine?.hasEnded == true) {
             val malId = animeCard?.malId ?: return@LaunchedEffect
@@ -343,6 +377,18 @@ fun PlayerScreen(
                         if (engine != null) engine.seekTo(target)
                         else simulatedPosition = target.coerceIn(0.0, fallbackDurationSeconds)
                     },
+                )
+            }
+        }
+
+        if (upNextDue) {
+            val nextNumber = next
+            Box(Modifier.align(Alignment.BottomEnd).padding(end = 36.dp, bottom = 148.dp)) {
+                PlayerUpNextCard(
+                    label = nextNumber?.let { "Episode ${formatEpisodeNumber(it)}" } ?: "Next episode",
+                    countdown = upNextCountdown,
+                    onPlay = { nextNumber?.let(onEpisodeChange) },
+                    onStay = { upNextDismissed = true },
                 )
             }
         }
@@ -512,6 +558,28 @@ internal fun outroIsCredits(window: Window, duration: Double): Boolean =
 internal fun skipTarget(window: PlayerSkipWindow, duration: Double): Double =
     if (window.kind == "outro" && duration > 0.0) minOf(window.window.end, duration) else window.window.end
 
+/** The stretch of a file in which the next episode is offered. */
+internal const val NEXT_EPISODE_TAIL_SECONDS = 30
+
+/** Offered here even over credits that haven't finished. */
+internal const val NEXT_EPISODE_FINAL_SECONDS = 5
+
+/** How long the up-next card counts before it plays the next episode itself. */
+internal const val NEXT_EPISODE_COUNTDOWN_SECONDS = 8
+
+/**
+ * Whether the next episode should be offered now: only in the file's last half-minute, and while
+ * highlighted credits still roll, not until they finish (or five seconds are all that's left), so
+ * a preview or post-credits scene after them still plays.
+ */
+internal fun nextEpisodeDue(position: Double, duration: Double, outro: Window?): Boolean {
+    if (duration <= 0.0 || position < 0.0) return false
+    val remaining = duration - position
+    if (remaining < 0.0 || remaining > NEXT_EPISODE_TAIL_SECONDS) return false
+    if (outro == null || !outroIsCredits(outro, duration)) return true
+    return !(position < outro.end && remaining > NEXT_EPISODE_FINAL_SECONDS)
+}
+
 @Composable
 internal fun PlayerSkipAction(label: String, onClick: () -> Unit) {
     Row(
@@ -522,6 +590,64 @@ internal fun PlayerSkipAction(label: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/**
+ * The next episode, offered in the file's last half-minute with a countdown that plays it unless
+ * the viewer stays.
+ */
+@Composable
+internal fun PlayerUpNextCard(
+    label: String,
+    countdown: Int?,
+    onPlay: () -> Unit,
+    onStay: () -> Unit,
+) {
+    Column(
+        Modifier
+            .width(320.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.Black.copy(alpha = 0.86f))
+            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Up next", color = Color.White.copy(alpha = 0.62f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(
+            label,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.24f))
+                    .clickable(onClick = onPlay)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    if (countdown != null) "Play now · ${countdown}s" else "Play now",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(10.dp))
+                    .clickable(onClick = onStay)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text("Stay", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }
 

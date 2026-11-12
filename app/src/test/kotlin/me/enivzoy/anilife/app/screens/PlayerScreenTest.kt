@@ -5,7 +5,9 @@ import me.enivzoy.anilife.core.model.Window
 import java.time.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class PlayerScreenTest {
     @Test
@@ -62,8 +64,27 @@ class PlayerScreenTest {
 
         assertEquals(1390.0, skipTarget(window, 1440.0))
         // An outro filed past the end of the file lands on the end.
-        assertEquals(1400.0, skipTarget(window, 1400.0))
-        assertEquals(1390.0, skipTarget(PlayerSkipWindow("intro", "Skip Intro", Window(0.0, 90.0)), 1400.0))
+        assertEquals(1400.0, skipTarget(PlayerSkipWindow("outro", "Skip Outro", Window(1300.0, 1500.0)), 1400.0))
+        assertEquals(90.0, skipTarget(PlayerSkipWindow("intro", "Skip Intro", Window(0.0, 90.0)), 1400.0))
+    }
+
+    @Test
+    fun theNextEpisodeIsOfferedOnlyInTheLastHalfMinute() {
+        assertFalse(nextEpisodeDue(1000.0, 1440.0, null))
+        assertTrue(nextEpisodeDue(1415.0, 1440.0, null))
+    }
+
+    @Test
+    fun highlightedCreditsHoldTheOfferBackUntilTheyFinish() {
+        // Credits that run to the very end of the file.
+        val lateCredits = Window(1400.0, 1430.0)
+
+        // Still inside the credits, with more than five seconds left: the offer waits.
+        assertFalse(nextEpisodeDue(1420.0, 1440.0, lateCredits))
+        // Only four seconds are left, so the offer comes anyway.
+        assertTrue(nextEpisodeDue(1436.0, 1440.0, lateCredits))
+        // Without credits, the offer comes as soon as the tail begins.
+        assertTrue(nextEpisodeDue(1420.0, 1440.0, null))
     }
 }
 
