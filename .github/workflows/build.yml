@@ -1,0 +1,68 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download latest libmpv (Windows x86_64)
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/mpv-player/mpv/releases/latest" -Headers @{ "User-Agent" = "anilife-build" }
+          $asset = $release.assets | Where-Object { $_.name -match 'libmpv-.*-x86_64-w64-mingw32-lgpl\.zip$' } | Select-Object -First 1
+          if (-not $asset) { throw "libmpv asset not found" }
+          Write-Host "Downloading $($asset.name) from $($asset.browser_download_url)"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile libmpv.zip
+          Expand-Archive -Path libmpv.zip -DestinationPath mpv-extract -Force
+          $dll = Get-ChildItem -Path mpv-extract -Recurse -Filter "libmpv-2.dll" | Select-Object -First 1
+          if (-not $dll) { throw "libmpv-2.dll not found in archive" }
+          Copy-Item -Path $dll.FullName -Destination "app/src/main/appResources/libmpv-2.dll" -Force
+          Write-Host "Bundled $($dll.FullName)"
+
+      - name: Build MSI/EXE
+        run: .\gradlew :app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AniLife-Windows-Installer
+          path: |
+            app/build/compose/binaries/main/**/*.msi
+            app/build/compose/binaries/main/**/*.exe
+          if-no-files-found: warn
+
+  # Optional: publish to GitHub Releases on version tags
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AniLife-Windows-Installer
+          path: release-files
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/**/*
+          generate_release_notes: true
+EOF
