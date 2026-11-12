@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import me.enivzoy.anilife.app.ui.AniLifeColors
 import kotlin.math.roundToLong
 
 @Composable
@@ -93,7 +94,7 @@ internal fun PlayerSeekBar(
             Text(
                 formatPlayerTime(preview),
                 Modifier.align(Alignment.TopStart).offset(x = thumbX).clip(RoundedCornerShape(6.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF333333), Color(0xFF111111))))
+                    .background(Brush.verticalGradient(listOf(AniLifeColors.SeekBarTop, AniLifeColors.SeekBarBottom)))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 color = Color.White,
                 fontSize = 11.sp,

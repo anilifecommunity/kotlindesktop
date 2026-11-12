@@ -147,7 +147,7 @@ fun ScoreTag(score: Double, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color(0xD9171717))
+            .background(AniLifeColors.Toast)
             .padding(horizontal = 6.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -172,7 +172,7 @@ fun AdultTag(modifier: Modifier = Modifier) {
     Chip(
         text = "18+",
         modifier = modifier,
-        container = Color(0xE6B91C1C),
+        container = AniLifeColors.ToastDanger,
         content = Color.White,
     )
 }
@@ -182,7 +182,7 @@ fun NextAiringTag(nextAiring: NextAiring, modifier: Modifier = Modifier) {
     Chip(
         text = "Ep ${nextAiring.episode} ${countdown(nextAiring.airingAt)}",
         modifier = modifier,
-        container = Color(0xD9171717),
+        container = AniLifeColors.Chip,
         content = AniLifeColors.Score,
     )
 }

@@ -137,7 +137,7 @@ fun Hero(
                     seasonLabel(current.season, current.year),
                     current.score?.let { "${it.toInt()}%" },
                 ).forEach { label ->
-                    Chip(text = label, container = Color(0xCC262626))
+                    Chip(text = label, container = AniLifeColors.ChipOverlay)
                 }
             }
 

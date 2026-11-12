@@ -106,12 +106,13 @@ import java.awt.Desktop
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
-private val DownloadSurface = Color(0xFF1E2024)
-private val DownloadSurfaceRaised = Color(0xFF25272C)
-private val DownloadOutline = Color(0xFF3A3D43)
-private val DownloadText = Color(0xFFE8E9EC)
-private val DownloadMuted = Color(0xFFA2A5AC)
-private val DownloadAccent = Color(0xFFFF8FC9)
+private val DownloadSurface get() = AniLifeColors.DownloadSurface
+private val DownloadSurfaceRaised get() = AniLifeColors.DownloadSurfaceRaised
+private val DownloadOutline get() = AniLifeColors.DownloadOutline
+private val DownloadText get() = AniLifeColors.DownloadText
+private val DownloadMuted get() = AniLifeColors.DownloadMuted
+private val DownloadAccent get() = AniLifeColors.DownloadAccent
+private val DownloadAccentForeground get() = AniLifeColors.DownloadAccentForeground
 
 @Composable
 fun DownloadsScreen(
@@ -644,7 +645,7 @@ private fun EpisodeList(
                             Button(
                                 onClick = { resumeEntry?.let { onPlay(anime.title, it.path.toUri().toString()) } },
                                 enabled = resumeEntry != null,
-                                colors = ButtonDefaults.buttonColors(containerColor = DownloadAccent, contentColor = Color(0xFF291522)),
+                                colors = ButtonDefaults.buttonColors(containerColor = DownloadAccent, contentColor = DownloadAccentForeground),
                                 shape = RoundedCornerShape(9.dp),
                             ) {
                                 Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -688,7 +689,7 @@ private fun EpisodeList(
                 Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(checked = allSelected, onCheckedChange = { checked -> selectedKeys = if (checked) episodeKeys else emptySet() }, colors = CheckboxDefaults.colors(checkedColor = DownloadAccent, uncheckedColor = DownloadOutline, checkmarkColor = Color(0xFF291522)))
+                Checkbox(checked = allSelected, onCheckedChange = { checked -> selectedKeys = if (checked) episodeKeys else emptySet() }, colors = CheckboxDefaults.colors(checkedColor = DownloadAccent, uncheckedColor = DownloadOutline, checkmarkColor = DownloadAccentForeground))
                 Text(if (selectedKeys.isEmpty()) "Episodes" else "${selectedKeys.size} selected", color = DownloadText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (selectedKeys.isNotEmpty()) {
                     TextButton(onClick = {
@@ -962,7 +963,7 @@ private fun DownloadEpisodeRow(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = selected, onCheckedChange = onToggle, colors = CheckboxDefaults.colors(checkedColor = DownloadAccent, uncheckedColor = DownloadOutline, checkmarkColor = Color(0xFF291522)))
+        Checkbox(checked = selected, onCheckedChange = onToggle, colors = CheckboxDefaults.colors(checkedColor = DownloadAccent, uncheckedColor = DownloadOutline, checkmarkColor = DownloadAccentForeground))
         RemoteImage(
             url = entry.anime.cover,
             contentDescription = "Episode ${entry.episode.episodeLabel()} thumbnail",
@@ -1003,7 +1004,7 @@ private fun DownloadEpisodeGridCard(
                 modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
                 placeholderColor = parseAnimeColor(entry.anime.color),
             )
-            Checkbox(checked = selected, onCheckedChange = onToggle, modifier = Modifier.align(Alignment.TopStart), colors = CheckboxDefaults.colors(checkedColor = DownloadAccent, uncheckedColor = Color(0xFFE0E1E4).copy(alpha = 0.8f), checkmarkColor = Color(0xFF291522)))
+            Checkbox(checked = selected, onCheckedChange = onToggle, modifier = Modifier.align(Alignment.TopStart), colors = CheckboxDefaults.colors(checkedColor = DownloadAccent, uncheckedColor = Color(0xFFE0E1E4).copy(alpha = 0.8f), checkmarkColor = DownloadAccentForeground))
         }
         Text("Episode ${entry.episode.episodeLabel()}", color = DownloadText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(entry.episodeTitle?.takeIf(String::isNotBlank) ?: formatBytes(entry.bytes), color = DownloadMuted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)

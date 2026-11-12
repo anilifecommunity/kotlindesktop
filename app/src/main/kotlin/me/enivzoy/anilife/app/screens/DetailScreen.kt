@@ -136,7 +136,7 @@ private fun BackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .size(40.dp)
             .clip(CircleShape)
-            .background(Color(0xCC171717))
+            .background(AniLifeColors.Overlay)
             .border(1.dp, AniLifeColors.Border, CircleShape)
             .clickable(onClick = onBack)
             .pointerHoverIcon(PointerIcon.Hand),
@@ -180,7 +180,7 @@ private fun DetailContent(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     placeholderColor = tint,
-                    tint = Color(0x4D000000),
+                    tint = AniLifeColors.Shadow,
                 )
                 Box(
                     Modifier
