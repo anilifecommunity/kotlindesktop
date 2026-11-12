@@ -1,9 +1,9 @@
 package me.enivzoy.anilife.app.data
 
-import javafx.application.Platform
-import javafx.embed.swing.JFXPanel
-import javafx.scene.Scene
-import javafx.scene.web.WebView
+import java.awt.Desktop
+import java.net.InetSocketAddress
+import com.sun.net.httpserver.HttpServer
+import com.sun.net.httpserver.HttpExchange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -24,8 +24,6 @@ import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.Properties
-import javax.swing.JFrame
-import javax.swing.SwingUtilities
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -74,12 +72,14 @@ object MyAnimeListSync {
         val state = randomUrlToken()
         val verifier = randomUrlToken()
         val authorizeUrl = URI.create(AUTHORIZE).let { uri ->
+            val redirectUri = "http://localhost:$MAL_CALLBACK_PORT"
             val query = listOf(
                 "response_type" to "code",
                 "client_id" to clientId,
                 "state" to state,
                 "code_challenge" to verifier,
                 "code_challenge_method" to "plain",
+                "redirect_uri" to redirectUri,
             ).joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
             "$uri?$query"
         }
@@ -192,36 +192,42 @@ object MyAnimeListSync {
         return Tokens(access, refresh, System.currentTimeMillis() / 1000 + expiry)
     }
 
+    private const val MAL_CALLBACK_PORT = 8765
+
     private suspend fun showLogin(url: String): Pair<String, String> = suspendCancellableCoroutine { continuation ->
-        SwingUtilities.invokeLater {
-            val frame = JFrame("Sign in to MyAnimeList")
-            frame.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
-            frame.setSize(540, 760)
-            frame.setLocationRelativeTo(null)
-            val panel = JFXPanel()
-            frame.add(panel)
-            frame.isVisible = true
-            Platform.runLater {
-                Platform.setImplicitExit(false)
-                val view = WebView()
-                view.engine.locationProperty().addListener { _, _, location ->
-                    val uri = runCatching { URI.create(location) }.getOrNull() ?: return@addListener
-                    if (!uri.host.equals("localhost", ignoreCase = true)) return@addListener
-                    val params = uri.rawQuery.orEmpty().split('&').mapNotNull { part ->
-                        val pair = part.split('=', limit = 2)
-                        if (pair.size == 2) decode(pair[0]) to decode(pair[1]) else null
-                    }.toMap()
-                    val code = params["code"]
-                    val state = params["state"]
-                    if (code != null && continuation.isActive) {
-                        continuation.resumeWith(Result.success(code to state.orEmpty()))
-                        SwingUtilities.invokeLater { frame.dispose() }
-                    }
-                }
-                view.engine.load(url)
-                panel.scene = Scene(view)
+        val server = try {
+            HttpServer.create(InetSocketAddress("127.0.0.1", MAL_CALLBACK_PORT), 0)
+        } catch (e: Throwable) {
+            continuation.resumeWith(Result.failure(IllegalStateException("Could not open the MyAnimeList sign-in callback port $MAL_CALLBACK_PORT: ${e.message}")))
+            return@suspendCancellableCoroutine
+        }
+        server.createContext("/") { exchange: HttpExchange ->
+            val params = exchange.requestURI.rawQuery.orEmpty().split('&').mapNotNull { part ->
+                val pair = part.split('=', limit = 2)
+                if (pair.size == 2) decode(pair[0]) to decode(pair[1]) else null
+            }.toMap()
+            val code = params["code"]
+            val state = params["state"]
+            val body = if (code != null) "Signed in. You can close this tab." else "Waiting for sign-in..."
+            val bytes = body.toByteArray(Charsets.UTF_8)
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+            if (code != null && continuation.isActive) {
+                continuation.resumeWith(Result.success(code to state.orEmpty()))
+                server.stop(0)
             }
-            continuation.invokeOnCancellation { SwingUtilities.invokeLater { frame.dispose() } }
+        }
+        server.start()
+        continuation.invokeOnCancellation { server.stop(0) }
+        runCatching {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                Desktop.getDesktop().browse(java.net.URI.create(url))
+            } else {
+                throw IllegalStateException("Desktop browsing is not supported on this system.")
+            }
+        }.onFailure { error ->
+            server.stop(0)
+            if (continuation.isActive) continuation.resumeWith(Result.failure(error))
         }
     }
 
