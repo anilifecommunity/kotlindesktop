@@ -53,7 +53,22 @@ jobs:
             Sort-Object Length -Descending | Select-Object -First 25 |
             ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring($dir.Length) }
           "runtime: {0:N0} MB" -f ((Get-ChildItem "$dir/*/runtime" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum/1MB)
-
+      - name: Report size breakdown
+        shell: pwsh
+        run: |
+          .\gradlew :app:createDistributable --no-daemon --no-configuration-cache
+          $dir = (Get-ChildItem app/build/compose/binaries/main/app -Directory | Select-Object -First 1).FullName
+          "== folders =="
+          Get-ChildItem $dir -Directory | ForEach-Object {
+            "{0,8:N1} MB  {1}" -f ((Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum/1MB), $_.Name }
+          "== top 25 files =="
+          Get-ChildItem $dir -Recurse -File | Sort-Object Length -Descending | Select-Object -First 25 |
+            ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring($dir.Length) }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          Get-ChildItem "$dir/app" -Filter *.jar | Sort-Object Length -Descending | Select-Object -First 3 | ForEach-Object {
+            "== $($_.Name) ({0:N1} MB) ==" -f ($_.Length/1MB)
+            [IO.Compression.ZipFile]::OpenRead($_.FullName).Entries | Sort-Object Length -Descending | Select-Object -First 8 |
+              ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName } }
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
