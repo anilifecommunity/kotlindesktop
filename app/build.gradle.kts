@@ -36,7 +36,9 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
-
+val defaultVersion = "1.0.0"
+val appVersion = providers.gradleProperty("appVersion").orNull ?: defaultVersion
+val portableBuild = providers.gradleProperty("portable").orNull == "true"
 compose.desktop {
     application {
         mainClass = "me.enivzoy.anilife.app.MainKt"
