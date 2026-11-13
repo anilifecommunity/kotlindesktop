@@ -11,6 +11,11 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write   # needed for the release step on tags
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,68 +26,97 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Build MSI/EXE
-        run: .\gradlew :app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
-
-      - name: Upload MSI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AniLife-Windows-MSI
-          path: app/build/compose/binaries/main/**/*.msi
-          if-no-files-found: warn
-      - name: Report biggest files in app image
-        shell: pwsh
+      # Version comes from the tag (v1.2.3 -> 1.2.3), otherwise from app/build.gradle.kts.
+      - name: Resolve version
         run: |
-          $dir = "app/build/compose/binaries/main/app"
-          if (-not (Test-Path $dir)) { $dir = "app/build/compose/binaries/main" }
-          Get-ChildItem $dir -Recurse -File |
-            Sort-Object Length -Descending | Select-Object -First 25 |
-            ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring($dir.Length) }
-          "runtime: {0:N0} MB" -f ((Get-ChildItem "$dir/*/runtime" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum/1MB)
-      - name: Report size breakdown
-        shell: pwsh
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF_NAME.TrimStart('v')
+          } else {
+            $v = (Select-String -Path app/build.gradle.kts -Pattern 'val defaultVersion = "([^"]+)"').Matches[0].Groups[1].Value
+          }
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Version '$v' must look like 1.2.3 (MSI requirement)" }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "Building version $v"
+
+      - name: Build base installers (.msi + .exe)
         run: |
-          .\gradlew :app:createDistributable --no-daemon --no-configuration-cache
-          $dir = (Get-ChildItem app/build/compose/binaries/main/app -Directory | Select-Object -First 1).FullName
-          "== folders =="
-          Get-ChildItem $dir -Directory | ForEach-Object {
-            "{0,8:N1} MB  {1}" -f ((Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum/1MB), $_.Name }
-          "== top 25 files =="
-          Get-ChildItem $dir -Recurse -File | Sort-Object Length -Descending | Select-Object -First 25 |
-            ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring($dir.Length) }
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          Get-ChildItem "$dir/app" -Filter *.jar | Sort-Object Length -Descending | Select-Object -First 3 | ForEach-Object {
-            "== $($_.Name) ({0:N1} MB) ==" -f ($_.Length/1MB)
-            [IO.Compression.ZipFile]::OpenRead($_.FullName).Entries | Sort-Object Length -Descending | Select-Object -First 8 |
-              ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName } }
-      - name: Upload EXE artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AniLife-Windows-EXE
-          path: app/build/compose/binaries/main/**/*.exe
-          if-no-files-found: warn
+          .\gradlew :app:packageMsi :app:packageExe "-PappVersion=$env:VERSION" --no-daemon --no-configuration-cache
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $bin = "app/build/compose/binaries/main"
+          Copy-Item (Get-ChildItem "$bin/msi/*.msi" | Select-Object -First 1) "dist/anilife-$env:VERSION#base.msi"
+          Copy-Item (Get-ChildItem "$bin/exe/*.exe" | Select-Object -First 1) "dist/anilife-$env:VERSION#base.exe"
 
-  # Optional: publish to GitHub Releases on version tags
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build-windows
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download MSI artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: AniLife-Windows-MSI
-          path: release-files
+      - name: Build portable .msi (no shortcuts, per-user, choose folder)
+        run: |
+          .\gradlew :app:packageMsi "-PappVersion=$env:VERSION" -Pportable=true --no-daemon --no-configuration-cache
+          $msi = Get-ChildItem "app/build/compose/binaries/main/msi/*.msi" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          Copy-Item $msi "dist/anilife-$env:VERSION#portable.msi"
 
-      - name: Download EXE artifact
-        uses: actions/download-artifact@v4
+      # Portable .exe: a single self-extracting file wrapping the app image.
+      # Double-click -> unpacks to a temp folder -> launches AniLife. Nothing is installed.
+      - name: Build portable .exe (self-extracting)
+        run: |
+          .\gradlew :app:createDistributable "-PappVersion=$env:VERSION" --no-daemon --no-configuration-cache
+          $img = "app/build/compose/binaries/main/app/AniLife"
+          if (-not (Test-Path "$img/AniLife.exe")) { throw "App image not found at $img" }
+
+          $sevenZip = "C:\Program Files\7-Zip"
+          & "$sevenZip\7z.exe" a -t7z -mx=5 sfx-payload.7z "$img\*"
+          if ($LASTEXITCODE -ne 0) { throw "7z failed" }
+
+          @'
+          ;!@Install@!UTF-8!
+          Title="AniLife"
+          GUIMode="1"
+          RunProgram="AniLife.exe"
+          ;!@InstallEnd@!
+          '@ -replace '(?m)^\s+', '' | Set-Content -Encoding utf8NoBOM sfx-config.txt
+
+          $out = "dist/anilife-$env:VERSION#portable.exe"
+          $stream = [IO.File]::Create((Join-Path $PWD $out))
+          foreach ($f in @("$sevenZip\7z.sfx", "sfx-config.txt", "sfx-payload.7z")) {
+            $bytes = [IO.File]::ReadAllBytes((Resolve-Path $f))
+            $stream.Write($bytes, 0, $bytes.Length)
+          }
+          $stream.Close()
+
+      - name: List outputs
+        run: Get-ChildItem dist | ForEach-Object { "{0,8:N1} MB  {1}" -f ($_.Length/1MB), $_.Name }
+
+      # archive: false uploads each file as-is (no .zip). The artifact is named after the file,
+      # and each upload step must match exactly one file.
+      - name: Upload base.msi
+        uses: actions/upload-artifact@v7
         with:
-          name: AniLife-Windows-EXE
-          path: release-files
+          path: dist/anilife-${{ env.VERSION }}#base.msi
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload base.exe
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/anilife-${{ env.VERSION }}#base.exe
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload portable.msi
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/anilife-${{ env.VERSION }}#portable.msi
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload portable.exe
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/anilife-${{ env.VERSION }}#portable.exe
+          archive: false
+          if-no-files-found: error
+
+      # Publish the 4 raw files to GitHub Releases on version tags
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release-files/**/*
+          files: dist/*
           generate_release_notes: true
