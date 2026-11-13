@@ -38,10 +38,10 @@ dependencies {
 }
 
 // Overridable from CI: -PappVersion=1.2.3 -Pportable=true
+
 val defaultVersion = "1.0.0"
 val appVersion = providers.gradleProperty("appVersion").orNull ?: defaultVersion
 val portableBuild = providers.gradleProperty("portable").orNull == "true"
-
 compose.desktop {
     application {
         mainClass = "me.enivzoy.anilife.app.MainKt"
