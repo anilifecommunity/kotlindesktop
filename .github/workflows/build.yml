@@ -120,3 +120,86 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+
+  build-linux:
+    needs: build-windows
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y fakeroot libmpv2
+
+      - name: Resolve version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V=$(grep -oP 'val defaultVersion = "\K[^"]+' app/build.gradle.kts)
+          fi
+          [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version '$V' must look like 1.2.3"; exit 1; }
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Build .deb
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:packageDeb "-PappVersion=$VERSION" --no-daemon --no-configuration-cache
+          mkdir -p dist
+          rm -rf debroot
+          dpkg-deb -R app/build/compose/binaries/main/deb/*.deb debroot
+          if grep -q '^Depends:' debroot/DEBIAN/control; then
+            sed -i 's/^Depends: \(.*\)$/Depends: \1, libmpv2/' debroot/DEBIAN/control
+          else
+            sed -i '/^Description:/i Depends: libmpv2' debroot/DEBIAN/control
+          fi
+          dpkg-deb --root-owner-group -b debroot "dist/anilife-$VERSION#base.deb"
+
+      - name: Build AppImage
+        run: |
+          ./gradlew :app:createDistributable "-PappVersion=$VERSION" --no-daemon --no-configuration-cache
+          IMG=$(find app/build/compose/binaries/main/app -mindepth 1 -maxdepth 1 -type d | head -n1)
+          LAUNCHER=$(ls "$IMG/bin" | head -n1)
+          mkdir -p AppDir/usr
+          cp -r "$IMG"/. AppDir/usr/
+          curl -fsSL -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          ./linuxdeploy --appimage-extract-and-run --appdir AppDir --library "$(ldconfig -p | awk '/libmpv\.so\.2 /{print $NF; exit}')"
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexport LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"\nexport ANILIFE_MPV_LIBRARY="$HERE/usr/lib/libmpv.so.2"\nexec "$HERE/usr/bin/%s" "$@"\n' "$LAUNCHER" > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          printf '[Desktop Entry]\nType=Application\nName=AniLife\nExec=%s\nIcon=anilife\nCategories=AudioVideo;Video;\n' "$LAUNCHER" > AppDir/anilife.desktop
+          cp app/src/main/resources/anilife-256.png AppDir/anilife.png
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir "dist/anilife-$VERSION#portable.AppImage"
+
+      - name: Upload base.deb
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/anilife-${{ env.VERSION }}#base.deb
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload portable.AppImage
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/anilife-${{ env.VERSION }}#portable.AppImage
+          archive: false
+          if-no-files-found: error
+
+      - name: Add to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          
