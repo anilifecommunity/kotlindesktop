@@ -18,6 +18,10 @@ object MpvBootstrap {
     /** Returns the path to a usable libmpv, downloading one if necessary. */
     suspend fun ensure(onStatus: (String) -> Unit = {}): String? {
         Mpv.defaultLibraryPath()?.let { return it }
+        if (!System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)) {
+            onStatus("libmpv not found")
+            return null
+        }
         val targetDir = File(System.getProperty("user.home"), ".anilife").apply { mkdirs() }
         val target = File(targetDir, "libmpv-2.dll")
         if (target.exists() && target.length() > 0) {
