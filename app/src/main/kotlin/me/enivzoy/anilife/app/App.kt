@@ -1,4 +1,4 @@
-﻿package me.enivzoy.anilife.app
+package me.enivzoy.anilife.app
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -123,7 +123,7 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
     LaunchedEffect(Unit) {
         val path = MpvBootstrap.ensure { status -> NoticeStoreInstance.add(kind = "mpv", title = "mpv", body = status) }
         if (path == null) {
-            NoticeStoreInstance.add(kind = "mpv", title = "mpv", body = "libmpv not found and auto-download failed. Install mpv manually.")
+            NoticeStoreInstance.add(kind = "mpv", title = "mpv", body = "libmpv not found. Install mpv manually.")
         }
     }
 
@@ -434,3 +434,4 @@ fun AniLifeApp(settingsStore: AppSettingsStore, onPlayerFullscreen: (Boolean) ->
 private fun formatPlayerEpisode(number: Double): String =
     if (number % 1.0 == 0.0) number.toLong().toString() else number.toString()
 
+    
