@@ -1,4 +1,4 @@
-﻿package me.enivzoy.anilife.mpv
+package me.enivzoy.anilife.mpv
 
 import com.sun.jna.Function
 import com.sun.jna.Memory
@@ -468,6 +468,7 @@ class Mpv(
             candidates.add("D:/Anilili")
             candidates.add("D:/lilibackup/Anilili")
             candidates.add(System.getProperty("user.home") ?: ".")
+            candidates.addAll(listOf("/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib", "/usr/local/lib"))
             for (dir in candidates) {
                 for (name in listOf("libmpv-2.dll", "libmpv.so.2", "libmpv.dylib")) {
                     val file = File(dir, name)
