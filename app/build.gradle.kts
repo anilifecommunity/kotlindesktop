@@ -1,4 +1,6 @@
-﻿plugins {
+﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
+plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"
@@ -13,6 +15,15 @@ repositories {
 
 kotlin {
     jvmToolchain(21)
+}
+
+val osName = System.getProperty("os.name").lowercase()
+val isWindows = osName.startsWith("windows")
+val isLinux = osName.startsWith("linux")
+val wasmtimeClassifier = when {
+    isWindows -> "windows-x86_64"
+    isLinux -> "linux-x86_64"
+    else -> error("Unsupported OS: $osName")
 }
 
 dependencies {
@@ -32,29 +43,44 @@ dependencies {
     implementation("ai.tegmentum:wasmtime4j-jni:48.0.0-2.0.0") {
         exclude(group = "ai.tegmentum", module = "wasmtime4j-native")
     }
-    implementation("ai.tegmentum:wasmtime4j-native:48.0.0-2.0.0:windows-x86_64")
+    implementation("ai.tegmentum:wasmtime4j-native:48.0.0-2.0.0:$wasmtimeClassifier")
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
+
+// Overridable from CI: -PappVersion=1.2.3 -Pportable=true
 val defaultVersion = "1.0.0"
 val appVersion = providers.gradleProperty("appVersion").orNull ?: defaultVersion
 val portableBuild = providers.gradleProperty("portable").orNull == "true"
+
 compose.desktop {
     application {
         mainClass = "me.enivzoy.anilife.app.MainKt"
         nativeDistributions {
-            targetFormats(
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe,
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
-            )
+            if (isLinux) {
+                targetFormats(TargetFormat.Deb)
+            } else {
+                targetFormats(TargetFormat.Exe, TargetFormat.Msi)
+            }
             packageName = "AniLife"
-            packageVersion = "1.0.0"
+            packageVersion = appVersion
             appResourcesRootDir = file("src/main/appResources")
             modules("java.instrument", "java.net.http", "jdk.httpserver", "jdk.unsupported")
-            windows {
-                menu = true
+            linux {
+                packageName = "anilife"
                 shortcut = true
-                upgradeUuid = "a1b2c3d4-e5f6-4789-9abc-def012345678"
+                iconFile.set(file("src/main/resources/anilife-256.png"))
+            }
+            windows {
+                menu = !portableBuild
+                shortcut = !portableBuild
+                perUserInstall = portableBuild
+                dirChooser = portableBuild
+                upgradeUuid = if (portableBuild) {
+                    "b2c3d4e5-f6a7-4890-8bcd-ef0123456789"
+                } else {
+                    "a1b2c3d4-e5f6-4789-9abc-def012345678"
+                }
             }
         }
     }
