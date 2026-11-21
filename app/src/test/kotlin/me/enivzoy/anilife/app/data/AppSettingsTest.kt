@@ -3,7 +3,6 @@
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import java.time.Instant
 import xyz.orbitary.perigee.activity.ActivityType
 
@@ -36,7 +35,11 @@ class AppSettingsTest {
         assertEquals("On S01E08", series.state())
         assertEquals("On S01E08", missingSeason.state())
         assertEquals(startedAt, series.timestamps()?.start())
-        assertTrue(idle.buttons().isEmpty())
+        assertEquals(2, idle.buttons().size)
+        assertEquals("Visit Website", idle.buttons()[0].label())
+        assertEquals(ANILIFE_WEBSITE_URL, idle.buttons()[0].url())
+        assertEquals("Star the Repo", idle.buttons()[1].label())
+        assertEquals(ANILIFE_REPO_URL, idle.buttons()[1].url())
     }
 
     @Test

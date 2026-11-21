@@ -140,7 +140,9 @@ fun PlayerScreen(
         if (!settings.resumePlayback) return@remember 0.0
         ContinueStoreInstance.positionFor(animeId, ep) ?: 0.0
     }
-    val playbackInfo = remember(detail?.id, showTitle, title, episode, episodeTitle, detail?.episodes, detail?.cover) {
+    val playbackInfo = remember(
+        detail?.id, showTitle, title, episode, episodeTitle, detail?.episodes, detail?.cover,
+    ) {
         DiscordPlaybackInfo(
             animeId = detail?.id ?: 0L,
             title = showTitle.ifBlank { title },

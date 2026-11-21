@@ -78,6 +78,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
  
@@ -444,7 +445,20 @@ fun AniLifeApp(
                             else screen = target.copy(episode = episode, episodeTitle = target.episodeTitles[episode])
                         },
                         onPresence = { presence ->
-                            if (presence == null) discordPresence.clearPlayer() else discordPresence.show(presence)
+                            if (presence != null) {
+                                discordPresence.show(presence)
+                            } else {
+                                // mpv reports an end-of-file and Compose disposes the old engine when
+                                // switching episodes. Don't flash idle unless we really left the player.
+                                if (screen !is Screen.Player) {
+                                    discordPresence.clearPlayer()
+                                } else {
+                                    scope.launch {
+                                        delay(700)
+                                        if (screen !is Screen.Player) discordPresence.clearPlayer()
+                                    }
+                                }
+                            }
                         },
                         onBack = ::goBack,
                     )

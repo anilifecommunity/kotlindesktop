@@ -17,13 +17,14 @@ class DiscordPresenceTest {
         episode: Double = 3.0,
         total: Int? = 12,
         episodeTitle: String? = null,
+        cover: String? = "https://s4.anilist.co/cover.jpg",
     ) = Presence(
         animeId = 42,
         title = "My Series",
         episode = episode,
         episodeTitle = episodeTitle,
         total = total,
-        cover = "https://s4.anilist.co/cover.jpg",
+        cover = cover,
         position = position,
         duration = duration,
         paused = paused,
@@ -36,6 +37,7 @@ class DiscordPresenceTest {
         assertNotEquals(base.identity(), base.copy(paused = true).identity())
         assertNotEquals(base.identity(), base.copy(episode = 4.0).identity())
         assertNotEquals(base.identity(), base.copy(episodeTitle = "The News").identity())
+        assertNotEquals(base.identity(), base.copy(cover = "https://s4.anilist.co/other-cover.jpg").identity())
     }
 
     @Test
@@ -53,10 +55,15 @@ class DiscordPresenceTest {
         assertEquals(ActivityType.WATCHING, activity.type())
         assertEquals("My Series", activity.details())
         assertEquals("Ep: 3/12 - The News", activity.state())
-        // Minimal IPC payload: images/buttons/statusDisplay have caused Discord to ignore it.
-        assertNull(activity.assets().largeImage())
+        // The large image is the vertical AniList cover; the wide splashart gets cropped/scaled.
+        assertEquals("https://s4.anilist.co/cover.jpg", activity.assets().largeImage())
+        assertEquals("Ep: 3/12 - The News", activity.assets().largeText())
         assertNull(activity.assets().smallImage())
-        assertTrue(activity.buttons().isEmpty())
+        assertEquals(2, activity.buttons().size)
+        assertEquals("View Anime on AniList", activity.buttons()[0].label())
+        assertEquals("https://anilist.co/anime/42", activity.buttons()[0].url())
+        assertEquals("View Source", activity.buttons()[1].label())
+        assertEquals(ANILIFE_REPO_URL, activity.buttons()[1].url())
 
         val timestamps = assertNotNull(activity.timestamps())
         val start = assertNotNull(timestamps.start())
@@ -70,9 +77,17 @@ class DiscordPresenceTest {
     fun pausedActivityDropsTimestampsAndKeepsTextOnlyBadge() {
         val activity = buildActivity(playing(paused = true))
 
+        assertEquals("https://s4.anilist.co/cover.jpg", activity.assets().largeImage())
         assertNull(activity.assets().smallImage())
         assertNull(activity.assets().smallText())
         assertNull(activity.timestamps())
+    }
+
+    @Test
+    fun largeImageOmitsInvalidUrls() {
+        assertNull(buildActivity(playing(cover = null)).assets().largeImage())
+        assertNull(buildActivity(playing(cover = " ")).assets().largeImage())
+        assertNull(buildActivity(playing(cover = "file:///tmp/cover.jpg")).assets().largeImage())
     }
 
     @Test
