@@ -26,6 +26,27 @@ val wasmtimeClassifier = when {
     isLinux -> "linux-x86_64"
     else -> error("Unsupported OS: $osName")
 }
+val wasmtimeVersion = "48.0.0-2.0.0"
+
+// wasmtime4j-jni ships the native library for every platform inside the jar
+// (~150 MB unpacked). The platform-specific wasmtime4j-native jar below already
+// carries the one we need, so repack the JNI jar without natives/**.
+val wasmtimeJniSlim = tasks.register<Jar>("wasmtimeJniSlim") {
+    archiveBaseName.set("wasmtime4j-jni-slim")
+    destinationDirectory.set(layout.buildDirectory.dir("slimJars"))
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    val full = configurations.detachedConfiguration(
+        dependencies.create("ai.tegmentum:wasmtime4j-jni:$wasmtimeVersion")
+    ).apply { isTransitive = false }
+    from({ zipTree(full.singleFile) }) {
+        exclude("natives/**", "META-INF/MANIFEST.MF")
+    }
+}
+
+// Keep the original (fat) JNI jar off every classpath; the slim one replaces it.
+configurations.configureEach {
+    exclude(group = "ai.tegmentum", module = "wasmtime4j-jni")
+}
 
 dependencies {
     implementation(project(":core"))
@@ -41,11 +62,11 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("ai.tegmentum:wasmtime4j:48.0.0-2.0.0")
-    implementation("ai.tegmentum:wasmtime4j-jni:48.0.0-2.0.0") {
-        exclude(group = "ai.tegmentum", module = "wasmtime4j-native")
-    }
-    implementation("ai.tegmentum:wasmtime4j-native:48.0.0-2.0.0:$wasmtimeClassifier")
+    implementation("ai.tegmentum:wasmtime4j:$wasmtimeVersion")
+    // was a transitive dependency of wasmtime4j-jni, which is now excluded above
+    implementation("ai.tegmentum:wasmtime4j-native-loader:$wasmtimeVersion")
+    implementation(files(wasmtimeJniSlim.flatMap { it.archiveFile }))
+    implementation("ai.tegmentum:wasmtime4j-native:$wasmtimeVersion:$wasmtimeClassifier")
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
