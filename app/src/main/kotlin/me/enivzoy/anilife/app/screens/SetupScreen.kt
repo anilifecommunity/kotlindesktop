@@ -128,6 +128,7 @@ private fun DependencyCard(state: DependencyState, onRetry: () -> Unit) {
         Dependency.JRE -> "Java runtime"
         Dependency.MPV -> "mpv player"
         Dependency.FFMPEG -> "ffmpeg tools"
+        Dependency.UPSCALER -> "Upscaler models"
     }
     val detail = when (state.status) {
         DependencyStatus.Pending -> "Waiting"

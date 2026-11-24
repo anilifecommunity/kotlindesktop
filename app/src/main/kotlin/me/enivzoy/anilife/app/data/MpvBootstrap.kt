@@ -9,21 +9,16 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.util.zip.ZipInputStream
+import java.nio.file.Files
 
-/** Downloads libmpv on first launch when it isn't already available. */
 object MpvBootstrap {
-    private const val RELEASE_API = "https://api.github.com/repos/mpv-player/mpv/releases/latest"
-    private const val USER_AGENT = "AniLife/1.0"
-
-    /** Returns the path to a usable libmpv, downloading one if necessary. */
     suspend fun ensure(onStatus: (String) -> Unit = {}): String? {
         Mpv.defaultLibraryPath()?.let { return it }
         if (!System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)) {
             onStatus("libmpv not found")
             return null
         }
-        val targetDir = File(System.getProperty("user.home"), ".anilife").apply { mkdirs() }
+        val targetDir = dependencyDirectory().resolve("mpv").apply { mkdirs() }
         val target = File(targetDir, "libmpv-2.dll")
         if (target.exists() && target.length() > 0) {
             System.setProperty("AniLife.mpv.library", target.absolutePath)
@@ -34,39 +29,48 @@ object MpvBootstrap {
         return try {
             withContext(Dispatchers.IO) {
                 val client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
-                val releaseRequest = HttpRequest.newBuilder(URI.create(RELEASE_API))
-                    .header("User-Agent", USER_AGENT).GET().build()
+                val releaseRequest = request(MPV_RELEASES, "application/vnd.github+json")
                 val releaseJson = ResourceTracker.networkOpened(releaseRequest.uri().host).use {
                     client.send(releaseRequest, HttpResponse.BodyHandlers.ofString())
                 }.body()
-                val assetUrl = Regex("\"browser_download_url\"\\s*:\\s*\"([^\"]*libmpv-[^\"]*x86_64-w64-mingw32-lgpl\\.zip)\"")
-                    .find(releaseJson)?.groupValues?.get(1)
-                    ?: return@withContext null
+                val source = parseReleaseSource(releaseJson, releaseAssetPattern(Dependency.MPV))
                 onStatus("fetching libmpv…")
-                val assetRequest = HttpRequest.newBuilder(URI.create(assetUrl)).header("User-Agent", USER_AGENT).GET().build()
-                val zipBytes = ResourceTracker.networkOpened(assetRequest.uri().host).use {
-                    client.send(assetRequest, HttpResponse.BodyHandlers.ofByteArray())
-                }.body()
-                onStatus("extracting…")
-                ZipInputStream(zipBytes.inputStream()).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        if (entry.name.endsWith("libmpv-2.dll")) {
-                            target.outputStream().use { out -> zis.copyTo(out) }
-                            break
-                        }
-                        entry = zis.nextEntry
-                    }
+                val archive = Files.createTempFile("anilife-mpv-", ".7z")
+                try {
+                    val assetRequest = request(source.url, "application/octet-stream")
+                    val bytes = ResourceTracker.networkOpened(assetRequest.uri().host).use {
+                        client.send(assetRequest, HttpResponse.BodyHandlers.ofByteArray())
+                    }.body()
+                    Files.write(archive, bytes)
+                    onStatus("extracting…")
+                    extractArchive(
+                        archive,
+                        targetDir.toPath(),
+                        name = { it.substringAfterLast('/') },
+                        keep = { it.equals("libmpv-2.dll", ignoreCase = true) },
+                    )
+                } finally {
+                    Files.deleteIfExists(archive)
                 }
                 if (target.exists() && target.length() > 0) {
                     System.setProperty("AniLife.mpv.library", target.absolutePath)
                     onStatus("mpv ready")
                     target.absolutePath
-                } else null
+                } else {
+                    null
+                }
             }
-        } catch (e: Throwable) {
-            onStatus("mpv download failed: ${e.message}")
+        } catch (error: Throwable) {
+            onStatus("mpv download failed: ${error.message}")
             null
         }
     }
+
+    private fun request(url: String, accept: String): HttpRequest =
+        HttpRequest.newBuilder(URI.create(url))
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", accept)
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .GET()
+            .build()
 }

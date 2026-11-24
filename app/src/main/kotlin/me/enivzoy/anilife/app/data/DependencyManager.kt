@@ -13,8 +13,13 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import net.sf.sevenzipjbinding.ExtractOperationResult
+import net.sf.sevenzipjbinding.SevenZip
+import net.sf.sevenzipjbinding.impl.RandomAccessFileInStream
+import net.sf.sevenzipjbinding.simple.ISimpleInArchiveItem
 import java.io.BufferedInputStream
 import java.io.File
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.file.Files
@@ -25,7 +30,17 @@ import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 import kotlin.coroutines.coroutineContext
 
-enum class Dependency { JRE, MPV, FFMPEG }
+internal const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AniLifeSetup/1.0"
+internal const val ADOPTIUM_API =
+    "https://api.adoptium.net/v3/assets/latest/25/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse"
+internal const val MPV_RELEASES = "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest"
+internal const val FFMPEG_RELEASES = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
+internal const val UPSCALER_ARCHIVE =
+    "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-windows.zip"
+internal const val UPSCALER_SHA256 = "abc02804e17982a3be33675e4d471e91ea374e65b70167abc09e31acb412802d"
+private const val UPSCALER_VERSION = "v0.2.5.0"
+
+enum class Dependency { JRE, MPV, FFMPEG, UPSCALER }
 
 enum class DependencyStatus { Pending, Downloading, Verifying, Extracting, Installed, Failed }
 
@@ -51,6 +66,48 @@ fun dependencyDirectory(): File {
     return File(base, "bin")
 }
 
+internal fun releaseAssetPattern(dependency: Dependency): Regex = when (dependency) {
+    Dependency.MPV -> Regex("^mpv-dev-x86_64-\\d{8}-git-[0-9a-f]+\\.7z$")
+    Dependency.FFMPEG -> Regex("^ffmpeg-master-latest-win64-gpl\\.zip$")
+    else -> error("$dependency has no release asset pattern.")
+}
+
+internal fun upscalerSource(): DependencySource =
+    DependencySource(UPSCALER_ARCHIVE, UPSCALER_SHA256, UPSCALER_VERSION)
+
+internal fun fetchText(url: String): String {
+    val connection = openConnection(url, api = true, followRedirects = true, connectMs = 30_000, readMs = 30_000)
+    return try {
+        requireSuccess(connection)
+        connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+    } finally {
+        connection.disconnect()
+    }
+}
+
+internal fun openConnection(
+    url: String,
+    api: Boolean,
+    followRedirects: Boolean,
+    connectMs: Int,
+    readMs: Int,
+): HttpURLConnection = (URI(url).toURL().openConnection() as HttpURLConnection).apply {
+    instanceFollowRedirects = followRedirects
+    connectTimeout = connectMs
+    readTimeout = readMs
+    setRequestProperty("User-Agent", USER_AGENT)
+    setRequestProperty("Accept", if (api) "application/vnd.github+json" else "application/octet-stream")
+    if (api) setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+}
+
+internal fun requireSuccess(connection: HttpURLConnection) {
+    val code = connection.responseCode
+    if (code !in 200..299) {
+        val body = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+        error("Request failed ($code): ${body.take(240).ifBlank { connection.url.host }}")
+    }
+}
+
 class DependencyManager(
     private val scope: CoroutineScope,
     private val localDir: File,
@@ -68,8 +125,9 @@ class DependencyManager(
     val jreDir: Path = installDir.resolve("jre")
     val mpvDir: Path = installDir.resolve("mpv")
     val ffmpegDir: Path = installDir.resolve("ffmpeg")
+    val upscalerDir: Path = installDir.resolve("upscaler")
 
-    fun isSetupComplete(): Boolean = !isWindows || Dependency.entries.all { isInstalled(it) }
+    fun isSetupComplete(): Boolean = !isWindows || Dependency.entries.all(::isInstalled)
 
     fun start() {
         if (isSetupComplete() || installJob?.isActive == true) return
@@ -107,7 +165,11 @@ class DependencyManager(
         }
         return runCatching {
             Dependency.entries.forEach { dependency ->
-                if (!isInstalled(dependency)) install(dependency, onProgress)
+                if (isInstalled(dependency)) {
+                    state(dependency) { copy(status = DependencyStatus.Installed, progress = 1f, error = null) }
+                } else {
+                    install(dependency, onProgress)
+                }
             }
             configurePaths()
         }
@@ -116,6 +178,7 @@ class DependencyManager(
     fun configurePaths() {
         System.setProperty("AniLife.ffmpeg.dir", ffmpegDir.toString())
         System.setProperty("AniLife.jre.home", jreDir.toString())
+        System.setProperty("AniLife.upscaler.dir", upscalerDir.toString())
         findLibrary(mpvDir, "libmpv-2.dll")?.let { System.setProperty("AniLife.mpv.library", it.toString()) }
         if (isWindows && isInstalled(Dependency.JRE)) {
             installDir.resolve("use-jre").toFile().writeText("1")
@@ -129,6 +192,11 @@ class DependencyManager(
             Dependency.JRE -> listOf(jreDir.resolve("bin/java.exe"))
             Dependency.MPV -> listOf(mpvDir.resolve("libmpv-2.dll"))
             Dependency.FFMPEG -> listOf(ffmpegDir.resolve("ffmpeg.exe"), ffmpegDir.resolve("ffprobe.exe"))
+            Dependency.UPSCALER -> listOf(
+                upscalerDir.resolve("realesrgan-ncnn-vulkan.exe"),
+                upscalerDir.resolve("models/realesr-animevideov3-x4.param"),
+                upscalerDir.resolve("models/realesr-animevideov3-x4.bin"),
+            )
         }
         return binaries.all(Files::isRegularFile)
     }
@@ -138,7 +206,7 @@ class DependencyManager(
             copy(status = DependencyStatus.Downloading, progress = 0f, error = null, bytes = 0L, totalBytes = 0L)
         }
         val source = resolveSource(dependency)
-        val archive = Files.createTempFile("anilife-${dependency.name.lowercase()}-", ".zip")
+        val archive = Files.createTempFile("anilife-${dependency.name.lowercase()}-", archiveSuffix(source.url))
         try {
             download(source, archive, dependency, onProgress)
             state(dependency) { copy(status = DependencyStatus.Extracting, progress = 1f) }
@@ -147,6 +215,7 @@ class DependencyManager(
                 Dependency.JRE -> jreDir
                 Dependency.MPV -> mpvDir
                 Dependency.FFMPEG -> ffmpegDir
+                Dependency.UPSCALER -> upscalerDir
             }
             extract(archive, target, dependency)
             installDir.resolve("${dependency.name.lowercase()}.installed").toFile()
@@ -160,26 +229,11 @@ class DependencyManager(
         }
     }
 
-    private fun resolveSource(dependency: Dependency): DependencySource {
-        val body = fetchText(when (dependency) {
-            Dependency.JRE -> ADOPTIUM_API
-            Dependency.MPV -> MPV_RELEASES
-            Dependency.FFMPEG -> FFMPEG_RELEASES
-        })
-        return when (dependency) {
-            Dependency.JRE -> parseJreSource(body)
-            Dependency.MPV -> parseReleaseSource(body, Regex("libmpv-[^/]*x86_64-w64-mingw32-lgpl\\.zip$"))
-            Dependency.FFMPEG -> parseReleaseSource(body, Regex("ffmpeg-n8\\.1-latest-win64-gpl-shared-8\\.1\\.zip$"))
-        }
-    }
-
-    private fun fetchText(url: String): String {
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
-        connection.connectTimeout = 30_000
-        connection.readTimeout = 30_000
-        connection.setRequestProperty("User-Agent", USER_AGENT)
-        connection.setRequestProperty("Accept", "application/vnd.github+json")
-        return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+    private fun resolveSource(dependency: Dependency): DependencySource = when (dependency) {
+        Dependency.JRE -> parseJreSource(fetchText(ADOPTIUM_API))
+        Dependency.MPV -> parseReleaseSource(fetchText(MPV_RELEASES), releaseAssetPattern(Dependency.MPV))
+        Dependency.FFMPEG -> parseReleaseSource(fetchText(FFMPEG_RELEASES), releaseAssetPattern(Dependency.FFMPEG))
+        Dependency.UPSCALER -> upscalerSource()
     }
 
     private suspend fun download(
@@ -188,17 +242,14 @@ class DependencyManager(
         dependency: Dependency,
         onProgress: (Dependency, Float) -> Unit,
     ) {
-        val connection = URI(source.url).toURL().openConnection() as HttpURLConnection
-        connection.instanceFollowRedirects = true
-        connection.connectTimeout = 30_000
-        connection.readTimeout = 60_000
-        connection.setRequestProperty("User-Agent", USER_AGENT)
+        val connection = openConnection(source.url, api = false, followRedirects = true, connectMs = 30_000, readMs = 60_000)
         val digest = MessageDigest.getInstance("SHA-256")
         val total = connection.contentLength.toLong().coerceAtLeast(0L)
         var copied = 0L
         var lastTime = System.nanoTime()
         var lastBytes = 0L
         try {
+            requireSuccess(connection)
             DigestInputStream(BufferedInputStream(connection.inputStream), digest).use { input ->
                 Files.newOutputStream(target).use { output ->
                     val buffer = ByteArray(64 * 1024)
@@ -241,31 +292,36 @@ class DependencyManager(
     }
 
     private fun extract(archive: Path, target: Path, dependency: Dependency) {
-        val root = target.toAbsolutePath().normalize()
-        Files.createDirectories(root)
-        ZipInputStream(BufferedInputStream(Files.newInputStream(archive))).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                val name = unpackName(dependency, entry)
-                if (entry.isDirectory || name.isNullOrBlank()) continue
-                val destination = root.resolve(name).normalize()
-                if (!destination.startsWith(root)) continue
-                Files.createDirectories(destination.parent)
-                Files.copy(zip, destination, StandardCopyOption.REPLACE_EXISTING)
-                zip.closeEntry()
-            }
+        when (dependency) {
+            Dependency.JRE -> extractArchive(
+                archive,
+                target,
+                name = { it.substringAfter('/', "") },
+                keep = { it.isNotBlank() },
+            )
+            Dependency.MPV -> extractArchive(
+                archive,
+                target,
+                name = { it.substringAfterLast('/') },
+                keep = { it.equals("libmpv-2.dll", ignoreCase = true) },
+            )
+            Dependency.FFMPEG -> extractArchive(
+                archive,
+                target,
+                name = { it.substringAfter("/bin/", "") },
+                keep = {
+                    it.isNotBlank() && !it.contains('/') &&
+                        (it.endsWith(".exe", ignoreCase = true) || it.endsWith(".dll", ignoreCase = true))
+                },
+            )
+            Dependency.UPSCALER -> extractArchive(archive, target, name = { it }, keep = { true })
         }
     }
 
-    private fun unpackName(dependency: Dependency, entry: java.util.zip.ZipEntry): String? = when (dependency) {
-        Dependency.JRE -> entry.name.substringAfter('/', "").takeIf { it.isNotBlank() && !it.endsWith("/") }
-        Dependency.MPV -> entry.name.substringAfterLast('/')
-            .takeIf { it.equals("libmpv-2.dll", ignoreCase = true) }
-        Dependency.FFMPEG -> entry.name.substringAfter("/bin/", "")
-            .takeIf {
-                it.isNotBlank() && !it.contains('/') &&
-                    (it.endsWith(".exe", ignoreCase = true) || it.endsWith(".dll", ignoreCase = true))
-            }
+    private fun archiveSuffix(url: String): String {
+        val name = url.substringBefore('?').substringAfterLast('/')
+        val extension = name.substringAfterLast('.', "").lowercase()
+        return if (extension == "7z" || extension == "zip") ".$extension" else ".zip"
     }
 
     private fun findLibrary(root: Path, name: String): Path? = Files.walk(root).use { paths ->
@@ -286,14 +342,77 @@ class DependencyManager(
         update(dependency) { copy(status = DependencyStatus.Failed, error = message) }
     }
 
-    private companion object {
-        const val USER_AGENT = "AniLife-Setup/1.0"
-        const val ADOPTIUM_API =
-            "https://api.adoptium.net/v3/assets/latest/25/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse"
-        const val MPV_RELEASES = "https://api.github.com/repos/mpv-player/mpv/releases/latest"
-        const val FFMPEG_RELEASES = "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/latest"
-        val isWindows: Boolean get() = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+    private val isWindows: Boolean get() = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+}
+
+internal fun extractArchive(
+    archive: Path,
+    target: Path,
+    name: (String) -> String,
+    keep: (String) -> Boolean,
+) {
+    val root = target.toAbsolutePath().normalize()
+    Files.createDirectories(root)
+    if (archive.fileName.toString().endsWith(".7z", ignoreCase = true)) {
+        extractSevenZip(archive, root, name, keep)
+    } else {
+        ZipInputStream(BufferedInputStream(Files.newInputStream(archive))).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.isDirectory) continue
+                val destination = destination(root, entry.name, name, keep) ?: continue
+                Files.copy(zip, destination, StandardCopyOption.REPLACE_EXISTING)
+                zip.closeEntry()
+            }
+        }
     }
+}
+
+private fun extractSevenZip(
+    archive: Path,
+    root: Path,
+    name: (String) -> String,
+    keep: (String) -> Boolean,
+) {
+    SevenZip.initSevenZipFromPlatformJAR()
+    RandomAccessFile(archive.toFile(), "r").use { file ->
+        SevenZip.openInArchive(null, RandomAccessFileInStream(file)).use { inArchive ->
+            inArchive.simpleInterface.archiveItems
+                .filter { !it.isFolder }
+                .forEach { item -> extractSevenZipItem(item, root, name, keep) }
+        }
+    }
+}
+
+private fun extractSevenZipItem(
+    item: ISimpleInArchiveItem,
+    root: Path,
+    name: (String) -> String,
+    keep: (String) -> Boolean,
+) {
+    val destination = destination(root, item.path.orEmpty(), name, keep) ?: return
+    Files.newOutputStream(destination).use { output ->
+        val result = item.extractSlow { bytes ->
+            output.write(bytes)
+            bytes.size
+        }
+        check(result == ExtractOperationResult.OK) { "Failed to extract ${item.path}: $result" }
+    }
+}
+
+private fun destination(
+    root: Path,
+    rawName: String,
+    name: (String) -> String,
+    keep: (String) -> Boolean,
+): Path? {
+    val normalized = rawName.replace('\\', '/').removePrefix("./")
+    val relative = name(normalized).replace('\\', '/').removePrefix("./").trimStart('/')
+    if (relative.isBlank() || !keep(relative)) return null
+    val target = root.resolve(relative).normalize()
+    if (target == root || !target.startsWith(root)) return null
+    Files.createDirectories(target.parent)
+    return target
 }
 
 internal fun parseJreSource(body: String): DependencySource {

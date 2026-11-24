@@ -61,6 +61,10 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("net.sf.sevenzipjbinding:sevenzipjbinding:26.06-2.3")
+    if (isWindows) {
+        runtimeOnly("net.sf.sevenzipjbinding:sevenzipjbinding-windows-amd64:26.06-2.3")
+    }
     implementation("ai.tegmentum:wasmtime4j:$wasmtimeVersion")
     // was a transitive dependency of wasmtime4j-jni, which is now excluded above
     implementation("ai.tegmentum:wasmtime4j-native-loader:$wasmtimeVersion")
