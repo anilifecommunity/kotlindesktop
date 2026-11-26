@@ -74,11 +74,11 @@ internal fun redactForLog(value: String): String {
     }
 }
 
-internal fun installCommand(installer: Path, msiLog: Path): List<String> =
+internal fun installCommand(installer: Path, msiLog: Path): String =
     if (installer.fileName.toString().endsWith(".msi", ignoreCase = true)) {
-        listOf("msiexec.exe", "/i", installer.toString(), "/qn", "/norestart", "/L*v", msiLog.toString())
+        "msiexec.exe /i ${cmdQuote(installer.toString())} /qn /norestart /L*V ${cmdQuote(msiLog.toString())}"
     } else {
-        listOf(installer.toString(), "/quiet", "/norestart")
+        "${cmdQuote(installer.toString())} /quiet /norestart"
     }
 
 private fun cmdQuote(value: String): String = "\"${value.replace("\"", "\"\"")}\""
@@ -232,7 +232,7 @@ class Updater(
         val lines = buildList {
             add("@echo off")
             add("setlocal")
-            add(command.joinToString(" ") { cmdQuote(it) })
+            add(command)
             add("set CODE=%ERRORLEVEL%")
             add("echo %CODE%>${cmdQuote(marker.toString())}")
             if (appPath != null) {
@@ -242,7 +242,7 @@ class Updater(
             add("endlocal")
         }
         Files.write(helper, lines, StandardCharsets.UTF_8)
-        logger.info { "install command=${command.joinToString(" ") { redactForLog(it) }}" }
+        logger.info { "install command=${redactForLog(command)}" }
         logger.info {
             "install helper launched path=${redactForLog(helper.toString())} " +
                 "app=${appPath?.let(::redactForLog) ?: "n/a"}"

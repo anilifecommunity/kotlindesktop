@@ -112,7 +112,7 @@ jobs:
           $msi = "dist/anilife-$env:VERSION#base.msi"
           $hash = (Get-FileHash -Algorithm SHA256 -Path $msi).Hash.ToLowerInvariant()
           $size = [int64](Get-Item $msi).Length
-          $url = "https://github.com/anilifecommunity/kotlindesktop/releases/download/v$env:VERSION/anilife-$env:VERSION%23base.msi"
+          $url = "https://github.com/anilifecommunity/kotlindesktop/releases/download/v$env:VERSION/anilife-$env:VERSION.base.msi"
           $asset = [ordered]@{
             platform = "windows"
             url = $url

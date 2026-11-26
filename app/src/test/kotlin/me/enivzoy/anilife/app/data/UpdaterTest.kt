@@ -63,7 +63,7 @@ class UpdaterTest {
               "version": "1.0.9",
               "assets": [{
                 "platform": "windows",
-                "url": "https://github.com/anilifecommunity/kotlindesktop/releases/download/v1.0.9/anilife-1.0.9%23base.msi",
+                "url": "https://github.com/anilifecommunity/kotlindesktop/releases/download/v1.0.9/anilife-1.0.9.base.msi",
                 "sha256": "abc123",
                 "sizeBytes": 42
               }]
@@ -72,7 +72,7 @@ class UpdaterTest {
 
         val update = parseUpdateManifest(manifest, currentVersion = "1.0.1", platform = "windows")
 
-        assertEquals("https://github.com/anilifecommunity/kotlindesktop/releases/download/v1.0.9/anilife-1.0.9%23base.msi", update?.url)
+        assertEquals("https://github.com/anilifecommunity/kotlindesktop/releases/download/v1.0.9/anilife-1.0.9.base.msi", update?.url)
         assertEquals("abc123", update?.sha256)
         assertEquals(42L, update?.sizeBytes)
     }

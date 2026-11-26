@@ -20,14 +20,14 @@ class UpdaterLoggingTest {
     fun installCommandUsesVerboseMsiLogAndQuietExe() {
         val root = Files.createTempDirectory("updater-command-test")
         try {
-            val msi = root.resolve("anilife.msi")
-            val exe = root.resolve("anilife.exe")
+            val msi = root.resolve("folder with spaces").resolve("anilife.msi")
+            val exe = root.resolve("folder with spaces").resolve("anilife.exe")
             val log = root.resolve("updater-msi.log")
             assertEquals(
-                listOf("msiexec.exe", "/i", msi.toString(), "/qn", "/norestart", "/L*v", log.toString()),
+                "msiexec.exe /i \"${msi}\" /qn /norestart /L*V \"${log}\"",
                 installCommand(msi, log),
             )
-            assertEquals(listOf(exe.toString(), "/quiet", "/norestart"), installCommand(exe, log))
+            assertEquals("\"${exe}\" /quiet /norestart", installCommand(exe, log))
         } finally {
             root.toFile().deleteRecursively()
         }
